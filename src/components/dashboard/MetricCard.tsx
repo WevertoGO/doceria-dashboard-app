@@ -7,28 +7,34 @@ interface MetricCardProps {
   change?: number;
   icon: React.ReactNode;
   className?: string;
+  isPrimary?: boolean;
 }
 
-export function MetricCard({ title, value, change, icon, className = '' }: MetricCardProps) {
-  const changeColor = change && change > 0 ? 'text-green-600' : 'text-red-600';
+export function MetricCard({ title, value, change, icon, className = '', isPrimary = false }: MetricCardProps) {
+  const changeColor = change && change > 0 ? 'text-confeitaria-success' : 'text-confeitaria-error';
   const ChangeIcon = change && change > 0 ? TrendingUp : TrendingDown;
+  const changeSymbol = change && change > 0 ? '↗️' : '↘️';
 
   return (
-    <div className={`metric-card animate-fade-in ${className}`}>
+    <div className={`metric-card ${isPrimary ? 'metric-card-primary' : ''} animate-fade-in ${className}`}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="metric-label">{title}</p>
-          <p className="metric-value mt-2">{value}</p>
+          <p className={`mt-2 ${isPrimary ? 'metric-value-large' : 'metric-value'}`}>{value}</p>
           {change !== undefined && (
-            <div className={`flex items-center gap-1 mt-2 ${changeColor}`}>
-              <ChangeIcon className="h-3 w-3" />
-              <span className="metric-change">
-                {Math.abs(change)}% vs período anterior
-              </span>
+            <div className={`flex items-center gap-2 mt-3 ${changeColor}`}>
+              <span className="text-lg">{changeSymbol}</span>
+              <div className="flex items-center gap-1">
+                <ChangeIcon className="h-4 w-4" />
+                <span className="text-sm font-semibold">
+                  {Math.abs(change)}%
+                </span>
+              </div>
+              <span className="text-xs text-gray-500">vs mês anterior</span>
             </div>
           )}
         </div>
-        <div className="p-3 bg-rose-50 rounded-lg">
+        <div className={`p-3 rounded-xl ${isPrimary ? 'bg-white bg-opacity-80' : 'bg-gray-50'}`}>
           {icon}
         </div>
       </div>

@@ -63,11 +63,17 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Custom bakery colors
-				bakery: {
-					rose: '#FFE5E5',
-					beige: '#F5E6D3',
-					soft: '#F8F9FA'
+				// Paleta refinada da confeitaria
+				confeitaria: {
+					primary: '#E91E63',
+					'primary-light': '#F8BBD9',
+					secondary: '#4CAF50',
+					accent: '#FF9800',
+					neutral: '#F5F5F5',
+					text: '#212121',
+					success: '#4CAF50',
+					warning: '#FF9800',
+					error: '#F44336'
 				}
 			},
 			borderRadius: {
@@ -116,13 +122,33 @@ export default {
 					'100%': {
 						transform: 'translateX(0)'
 					}
+				},
+				'shimmer': {
+					'0%': {
+						backgroundPosition: '-200px 0'
+					},
+					'100%': {
+						backgroundPosition: 'calc(200px + 100%) 0'
+					}
+				},
+				'ripple': {
+					'0%': {
+						transform: 'scale(0)',
+						opacity: '1'
+					},
+					'100%': {
+						transform: 'scale(4)',
+						opacity: '0'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'fade-in': 'fade-in 0.3s ease-out',
-				'slide-in': 'slide-in 0.3s ease-out'
+				'slide-in': 'slide-in 0.3s ease-out',
+				'shimmer': 'shimmer 2s infinite linear',
+				'ripple': 'ripple 0.6s linear'
 			}
 		}
 	},

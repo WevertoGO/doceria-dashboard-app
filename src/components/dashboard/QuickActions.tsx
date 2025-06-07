@@ -1,11 +1,12 @@
 
 import { useState } from 'react';
-import { Plus, UserPlus, Package, Download } from 'lucide-react';
+import { Plus, UserPlus, Package, Download, FileText, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { NovoPedidoForm } from '@/components/forms/NovoPedidoForm';
 import { NovoClienteForm } from '@/components/forms/NovoClienteForm';
 import { NovoProdutoForm } from '@/components/forms/NovoProdutoForm';
+import { Badge } from '@/components/ui/badge';
 
 export function QuickActions() {
   const [openDialog, setOpenDialog] = useState<string | null>(null);
@@ -13,31 +14,51 @@ export function QuickActions() {
   const actions = [
     {
       title: 'Novo Pedido',
-      description: 'Criar pedido',
+      description: 'Criar pedido rapidamente',
       icon: Plus,
-      color: 'bg-rose-500 hover:bg-rose-600',
+      color: 'bg-confeitaria-primary hover:bg-opacity-90',
       dialog: 'pedido',
+      badge: null,
     },
     {
       title: 'Cadastrar Cliente',
-      description: 'Adicionar cliente',
+      description: 'Adicionar novo cliente',
       icon: UserPlus,
       color: 'bg-blue-500 hover:bg-blue-600',
       dialog: 'cliente',
+      badge: null,
     },
     {
       title: 'Adicionar Produto',
-      description: 'Novo produto',
+      description: 'Novo produto no catálogo',
       icon: Package,
-      color: 'bg-green-500 hover:bg-green-600',
+      color: 'bg-confeitaria-success hover:bg-green-600',
       dialog: 'produto',
+      badge: null,
+    },
+    {
+      title: 'Pedidos Pendentes',
+      description: 'Ver pedidos em produção',
+      icon: Clock,
+      color: 'bg-orange-500 hover:bg-orange-600',
+      dialog: null,
+      badge: '8',
+    },
+    {
+      title: 'Entregas Hoje',
+      description: 'Pedidos para entrega hoje',
+      icon: FileText,
+      color: 'bg-purple-500 hover:bg-purple-600',
+      dialog: null,
+      badge: '5',
     },
     {
       title: 'Exportar Relatório',
-      description: 'Gerar relatório',
+      description: 'Gerar relatório mensal',
       icon: Download,
-      color: 'bg-purple-500 hover:bg-purple-600',
+      color: 'bg-gray-600 hover:bg-gray-700',
       dialog: null,
+      badge: null,
     },
   ];
 
@@ -45,7 +66,6 @@ export function QuickActions() {
     if (action.dialog) {
       setOpenDialog(action.dialog);
     } else {
-      // Handle export or other actions
       console.log(`Executando ação: ${action.title}`);
     }
   };
@@ -53,21 +73,35 @@ export function QuickActions() {
   return (
     <>
       <div className="section-card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-semibold text-confeitaria-text">Ações Rápidas</h3>
+          <span className="text-sm text-gray-500">Acesso rápido às principais funcionalidades</span>
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {actions.map((action) => (
-            <Button
+            <div
               key={action.title}
-              variant="outline"
-              className={`h-auto p-4 flex flex-col items-center gap-2 hover-scale ${action.color} border-0 text-white`}
+              className="action-card relative"
               onClick={() => handleActionClick(action)}
             >
-              <action.icon className="h-6 w-6" />
-              <div className="text-center">
-                <p className="font-medium text-sm">{action.title}</p>
-                <p className="text-xs opacity-90">{action.description}</p>
+              {action.badge && (
+                <Badge className="absolute -top-2 -right-2 bg-confeitaria-primary text-white">
+                  {action.badge}
+                </Badge>
+              )}
+              
+              <div className={`p-4 rounded-xl ${action.color} text-white mb-4 inline-flex`}>
+                <action.icon className="h-8 w-8" />
               </div>
-            </Button>
+              
+              <div className="text-center">
+                <h4 className="font-semibold text-confeitaria-text text-sm mb-1">
+                  {action.title}
+                </h4>
+                <p className="text-xs text-gray-600">{action.description}</p>
+              </div>
+            </div>
           ))}
         </div>
       </div>
