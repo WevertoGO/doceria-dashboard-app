@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { CategorySelect } from '@/components/ui/category-select';
 import { toast } from 'sonner';
 
 interface NovoProdutoFormProps {
@@ -14,16 +15,21 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
   const [produto, setProduto] = useState({
     nome: '',
     descricao: '',
-    categoria: '',
     valor: '',
     unidade: 'unid'
   });
+  const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<number[]>([]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!produto.nome.trim()) {
       toast.error('Nome do produto é obrigatório');
+      return;
+    }
+
+    if (categoriasSelecionadas.length === 0) {
+      toast.error('Selecione pelo menos uma categoria');
       return;
     }
 
@@ -50,14 +56,31 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
           />
         </div>
         <div>
-          <Label htmlFor="categoria">Categoria</Label>
+          <Label htmlFor="valor">Valor *</Label>
           <Input
-            id="categoria"
-            value={produto.categoria}
-            onChange={(e) => setProduto({ ...produto, categoria: e.target.value })}
-            placeholder="Ex: Bolos"
+            id="valor"
+            type="number"
+            step="0.01"
+            value={produto.valor}
+            onChange={(e) => setProduto({ ...produto, valor: e.target.value })}
+            placeholder="0.00"
+            required
           />
         </div>
+      </div>
+
+      <div>
+        <Label>Categorias *</Label>
+        <CategorySelect
+          value={categoriasSelecionadas}
+          onChange={setCategoriasSelecionadas}
+          placeholder="Selecione as categorias do produto..."
+          multiple={true}
+          onNewCategory={() => {
+            // TODO: Abrir modal de nova categoria inline
+            console.log('Nova categoria');
+          }}
+        />
       </div>
 
       <div>
@@ -71,34 +94,20 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="valor">Valor *</Label>
-          <Input
-            id="valor"
-            type="number"
-            step="0.01"
-            value={produto.valor}
-            onChange={(e) => setProduto({ ...produto, valor: e.target.value })}
-            placeholder="0.00"
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="unidade">Unidade de Venda</Label>
-          <select
-            id="unidade"
-            value={produto.unidade}
-            onChange={(e) => setProduto({ ...produto, unidade: e.target.value })}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-          >
-            <option value="unid">Unidade</option>
-            <option value="kg">Quilograma</option>
-            <option value="g">Grama</option>
-            <option value="cento">Cento</option>
-            <option value="dz">Dúzia</option>
-          </select>
-        </div>
+      <div>
+        <Label htmlFor="unidade">Unidade de Venda</Label>
+        <select
+          id="unidade"
+          value={produto.unidade}
+          onChange={(e) => setProduto({ ...produto, unidade: e.target.value })}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+        >
+          <option value="unid">Unidade</option>
+          <option value="kg">Quilograma</option>
+          <option value="g">Grama</option>
+          <option value="cento">Cento</option>
+          <option value="dz">Dúzia</option>
+        </select>
       </div>
 
       <div>

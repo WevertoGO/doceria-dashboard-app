@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Home, Users, Package, ShoppingCart, BarChart3, Settings } from 'lucide-react';
+import { Home, Users, Package, ShoppingCart, BarChart3, Settings, FolderTree } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -33,6 +33,11 @@ const navigationItems = [
     title: 'Produtos',
     url: '/produtos',
     icon: Package,
+  },
+  {
+    title: 'Categorias',
+    url: '/categorias',
+    icon: FolderTree,
   },
   {
     title: 'Relatórios',
