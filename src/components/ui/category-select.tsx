@@ -72,7 +72,7 @@ export function CategorySelect({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full p-0">
-          <Command shouldFilter={false}>
+          <Command shouldFilter={false} key={open ? 'open' : 'closed'}>
             <CommandInput placeholder="Buscar categoria..." />
             <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
             <CommandGroup>
@@ -88,7 +88,7 @@ export function CategorySelect({
                   Nova Categoria
                 </CommandItem>
               )}
-              {categorias && categorias.length > 0 && categorias.map((categoria) => (
+              {Array.isArray(categorias) && categorias.map((categoria) => (
                 <CommandItem
                   key={categoria.id}
                   value={categoria.nome}
