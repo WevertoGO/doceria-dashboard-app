@@ -1,8 +1,8 @@
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -39,7 +39,10 @@ export function CategorySelect({
   // Ensure value is always an array and handle undefined/null cases
   const normalizedValue = Array.isArray(value) ? value : [];
   
-  const selectedCategories = categorias.filter(cat => normalizedValue.includes(cat.id));
+  const selectedCategories = useMemo(() => 
+    categorias.filter(cat => normalizedValue.includes(cat.id)), 
+    [normalizedValue]
+  );
 
   const handleSelect = (categoriaId: number) => {
     if (multiple) {
@@ -72,45 +75,47 @@ export function CategorySelect({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full p-0">
-          <Command shouldFilter={false}>
+          <Command>
             <CommandInput placeholder="Buscar categoria..." />
-            <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
-            <CommandGroup>
-              {onNewCategory && (
-                <CommandItem 
-                  key="new-category"
-                  onSelect={() => {
-                    onNewCategory();
-                    setOpen(false);
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Nova Categoria
-                </CommandItem>
-              )}
-              {categorias.map((categoria) => (
-                <CommandItem
-                  key={categoria.id}
-                  value={categoria.nome}
-                  onSelect={() => handleSelect(categoria.id)}
-                  className={cn("cursor-pointer", {
-                    "pl-4": categoria.nivel === 1,
-                    "pl-8": categoria.nivel === 2,
-                  })}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      normalizedValue.includes(categoria.id) ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  <div>
-                    <div className="font-medium">{categoria.nome}</div>
-                    <div className="text-xs text-gray-500">{categoria.caminho}</div>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            <CommandList>
+              <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
+              <CommandGroup>
+                {onNewCategory && (
+                  <CommandItem 
+                    key="new-category"
+                    onSelect={() => {
+                      onNewCategory();
+                      setOpen(false);
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nova Categoria
+                  </CommandItem>
+                )}
+                {categorias.map((categoria) => (
+                  <CommandItem
+                    key={categoria.id}
+                    value={categoria.nome}
+                    onSelect={() => handleSelect(categoria.id)}
+                    className={cn("cursor-pointer", {
+                      "pl-4": categoria.nivel === 1,
+                      "pl-8": categoria.nivel === 2,
+                    })}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        normalizedValue.includes(categoria.id) ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <div>
+                      <div className="font-medium">{categoria.nome}</div>
+                      <div className="text-xs text-gray-500">{categoria.caminho}</div>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
