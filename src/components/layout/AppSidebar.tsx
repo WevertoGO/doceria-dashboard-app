@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import { Home, Users, Package, ShoppingCart, BarChart3, Settings } from 'lucide-react';
 import {
   Sidebar,
@@ -46,7 +47,7 @@ const navigationItems = [
 ];
 
 export function AppSidebar() {
-  const [activeItem, setActiveItem] = useState('Dashboard');
+  const location = useLocation();
 
   return (
     <Sidebar className="border-r border-gray-200">
@@ -71,20 +72,17 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     className={`w-full justify-start gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
-                      activeItem === item.title
+                      location.pathname === item.url
                         ? 'bg-rose-50 text-rose-700 border border-rose-200'
                         : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
-                    <button
-                      onClick={() => setActiveItem(item.title)}
-                      className="flex items-center gap-3"
-                    >
+                    <Link to={item.url} className="flex items-center gap-3">
                       <item.icon className={`h-4 w-4 ${
-                        activeItem === item.title ? 'text-rose-600' : 'text-gray-500'
+                        location.pathname === item.url ? 'text-rose-600' : 'text-gray-500'
                       }`} />
                       <span className="font-medium">{item.title}</span>
-                    </button>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
