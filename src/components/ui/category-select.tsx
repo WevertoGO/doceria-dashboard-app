@@ -20,7 +20,7 @@ const categorias = [
 ];
 
 interface CategorySelectProps {
-  value: number[];
+  value?: number[];
   onChange: (value: number[]) => void;
   placeholder?: string;
   multiple?: boolean;
@@ -28,7 +28,7 @@ interface CategorySelectProps {
 }
 
 export function CategorySelect({ 
-  value, 
+  value = [], 
   onChange, 
   placeholder = "Selecionar categorias...",
   multiple = true,
@@ -36,13 +36,16 @@ export function CategorySelect({
 }: CategorySelectProps) {
   const [open, setOpen] = useState(false);
 
-  const selectedCategories = categorias.filter(cat => value.includes(cat.id));
+  // Ensure value is always an array
+  const normalizedValue = Array.isArray(value) ? value : [];
+  
+  const selectedCategories = categorias.filter(cat => normalizedValue.includes(cat.id));
 
   const handleSelect = (categoriaId: number) => {
     if (multiple) {
-      const newValue = value.includes(categoriaId)
-        ? value.filter(id => id !== categoriaId)
-        : [...value, categoriaId];
+      const newValue = normalizedValue.includes(categoriaId)
+        ? normalizedValue.filter(id => id !== categoriaId)
+        : [...normalizedValue, categoriaId];
       onChange(newValue);
     } else {
       onChange([categoriaId]);
@@ -51,7 +54,7 @@ export function CategorySelect({
   };
 
   const removeCategory = (categoriaId: number) => {
-    onChange(value.filter(id => id !== categoriaId));
+    onChange(normalizedValue.filter(id => id !== categoriaId));
   };
 
   return (
@@ -91,7 +94,7 @@ export function CategorySelect({
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value.includes(categoria.id) ? "opacity-100" : "opacity-0"
+                      normalizedValue.includes(categoria.id) ? "opacity-100" : "opacity-0"
                     )}
                   />
                   <div>
