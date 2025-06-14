@@ -8,11 +8,19 @@ import { UpcomingDeliveries } from '@/components/dashboard/UpcomingDeliveries';
 import { TopProducts } from '@/components/dashboard/TopProducts';
 import { RecentOrders } from '@/components/dashboard/RecentOrders';
 import { SalesChart } from '@/components/dashboard/SalesChart';
-import { TrendingUp, Users, DollarSign, ShoppingBag, Search, Bell } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, ShoppingBag, Search, Bell, LogOut } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
 
 const Index = () => {
+  const { signOut, user } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-confeitaria-neutral">
@@ -51,9 +59,22 @@ const Index = () => {
                   <Badge className="notification-badge">3</Badge>
                 </div>
 
+                {/* Logout button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="text-gray-600 hover:text-confeitaria-primary"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sair
+                </Button>
+
                 {/* Avatar do usuário */}
                 <div className="w-8 h-8 bg-confeitaria-primary rounded-full flex items-center justify-center cursor-pointer">
-                  <span className="text-white font-medium text-sm">MA</span>
+                  <span className="text-white font-medium text-sm">
+                    {user?.email?.charAt(0).toUpperCase()}
+                  </span>
                 </div>
               </div>
             </div>
