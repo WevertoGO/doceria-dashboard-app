@@ -11,6 +11,7 @@ import Produtos from "./pages/Produtos";
 import Categorias from "./pages/Categorias";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/login" element={<Login />} />
           <Route path="/" element={<Index />} />
           <Route path="/pedidos" element={<Pedidos />} />
           <Route path="/clientes" element={<Clientes />} />
