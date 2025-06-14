@@ -3,9 +3,15 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, TrendingUp, Users, DollarSign, Package } from 'lucide-react';
+import { FileText, TrendingUp, Users, DollarSign, Package } from 'lucide-react';
+import { PeriodFilter } from '@/components/dashboard/PeriodFilter';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ReportPeriodForm } from '@/components/forms/ReportPeriodForm';
+import { useState } from 'react';
 
 const Relatorios = () => {
+  const [openReportDialog, setOpenReportDialog] = useState(false);
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-bakery-soft">
@@ -20,10 +26,18 @@ const Relatorios = () => {
                 <h1 className="text-3xl font-bold text-gray-900">Relatórios</h1>
                 <p className="text-gray-600 mt-1">Análises e relatórios do desempenho da confeitaria</p>
               </div>
-              <Button className="bg-purple-500 hover:bg-purple-600">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar Relatório
+              <Button 
+                className="bg-confeitaria-primary hover:bg-confeitaria-primary/90"
+                onClick={() => setOpenReportDialog(true)}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Gerar Relatório
               </Button>
+            </div>
+
+            {/* Period Filter */}
+            <div className="mb-8">
+              <PeriodFilter />
             </div>
 
             {/* Cards de Relatórios */}
@@ -128,6 +142,16 @@ const Relatorios = () => {
           </div>
         </main>
       </div>
+
+      {/* Dialog para gerar relatório */}
+      <Dialog open={openReportDialog} onOpenChange={setOpenReportDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Gerar Relatório</DialogTitle>
+          </DialogHeader>
+          <ReportPeriodForm onSuccess={() => setOpenReportDialog(false)} />
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 };

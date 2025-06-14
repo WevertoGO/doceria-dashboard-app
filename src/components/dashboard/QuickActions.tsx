@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Plus, UserPlus, Package, Download, FileText, Clock } from 'lucide-react';
+import { Plus, UserPlus, Package, FileText, Clock, BarChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { NovoPedidoForm } from '@/components/forms/NovoPedidoForm';
@@ -53,10 +53,10 @@ export function QuickActions() {
       badge: '5',
     },
     {
-      title: 'Exportar Relatório',
-      description: 'Gerar relatório mensal',
-      icon: Download,
-      color: 'bg-gray-600 hover:bg-gray-700',
+      title: 'Relatórios',
+      description: 'Gerar relatório no período...',
+      icon: BarChart,
+      color: 'bg-indigo-500 hover:bg-indigo-600',
       dialog: null,
       badge: null,
     },
@@ -65,6 +65,8 @@ export function QuickActions() {
   const handleActionClick = (action: typeof actions[0]) => {
     if (action.dialog) {
       setOpenDialog(action.dialog);
+    } else if (action.title === 'Relatórios') {
+      window.location.href = '/relatorios';
     } else {
       console.log(`Executando ação: ${action.title}`);
     }

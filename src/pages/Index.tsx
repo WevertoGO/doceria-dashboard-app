@@ -2,7 +2,7 @@
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { MetricCard } from '@/components/dashboard/MetricCard';
-import { PeriodFilter } from '@/components/dashboard/PeriodFilter';
+
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { UpcomingDeliveries } from '@/components/dashboard/UpcomingDeliveries';
 import { TopProducts } from '@/components/dashboard/TopProducts';
@@ -95,10 +95,6 @@ const Index = () => {
               />
             </div>
 
-            {/* Period Filter */}
-            <div className="mb-8">
-              <PeriodFilter />
-            </div>
 
             {/* Quick Actions */}
             <div className="mb-8">

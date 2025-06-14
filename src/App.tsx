@@ -10,6 +10,7 @@ import Clientes from "./pages/Clientes";
 import Produtos from "./pages/Produtos";
 import Categorias from "./pages/Categorias";
 import Relatorios from "./pages/Relatorios";
+import RelatorioWeb from "./pages/RelatorioWeb";
 import Configuracoes from "./pages/Configuracoes";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/produtos" element={<Produtos />} />
           <Route path="/categorias" element={<Categorias />} />
           <Route path="/relatorios" element={<Relatorios />} />
+          <Route path="/relatorio-web" element={<RelatorioWeb />} />
           <Route path="/configuracoes" element={<Configuracoes />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
