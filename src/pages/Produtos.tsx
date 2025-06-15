@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
@@ -27,6 +28,8 @@ const Produtos = () => {
   const carregarProdutos = async () => {
     try {
       setLoading(true);
+      console.log('Carregando produtos...');
+      
       const { data, error } = await supabase
         .from('produtos')
         .select(`
@@ -34,11 +37,16 @@ const Produtos = () => {
           categorias (
             nome
           )
-        `)
-        .eq('ativo', true);
+        `);
 
-      if (error) throw error;
+      console.log('Resposta da query produtos:', { data, error });
 
+      if (error) {
+        console.error('Erro na query:', error);
+        throw error;
+      }
+
+      console.log('Produtos carregados:', data?.length || 0);
       setProdutos(data || []);
     } catch (error) {
       console.error('Erro ao carregar produtos:', error);
@@ -91,6 +99,8 @@ const Produtos = () => {
     produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     produto.categorias?.nome?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  console.log('Produtos filtrados para exibição:', produtosFiltrados.length);
 
   return (
     <SidebarProvider>
@@ -149,6 +159,15 @@ const Produtos = () => {
               </div>
             </div>
 
+            {/* Debug Info */}
+            {!loading && (
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  Debug: {produtos.length} produtos carregados, {produtosFiltrados.length} após filtro
+                </p>
+              </div>
+            )}
+
             {/* Grid de Produtos */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {loading ? (
@@ -166,7 +185,13 @@ const Produtos = () => {
                 ))
               ) : produtos.length === 0 ? (
                 <div className="col-span-full text-center py-12">
-                  <p className="text-gray-500">Nenhum produto encontrado</p>
+                  <p className="text-gray-500">Nenhum produto encontrado no banco de dados</p>
+                  <p className="text-sm text-gray-400 mt-2">Verifique se existem produtos cadastrados</p>
+                </div>
+              ) : produtosFiltrados.length === 0 ? (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-gray-500">Nenhum produto encontrado com o filtro aplicado</p>
+                  <p className="text-sm text-gray-400 mt-2">Existem {produtos.length} produtos no total</p>
                 </div>
               ) : (
                 produtosFiltrados.map((produto) => (
@@ -181,6 +206,9 @@ const Produtos = () => {
                         R$ {Number(produto.preco).toFixed(2)}
                       </span>
                       <span className="text-sm text-gray-500">/{produto.unidade}</span>
+                    </div>
+                    <div className="text-xs text-gray-400 mb-2">
+                      Status: {produto.ativo ? 'Ativo' : 'Inativo'}
                     </div>
                     <div className="flex gap-2">
                       <Button 
