@@ -1,12 +1,13 @@
+
 import { useState, useMemo, useEffect } from 'react';
-import { Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { NovaCategoriaForm } from '@/components/forms/NovaCategoriaForm';
+import { CategorySelectList } from './CategorySelectList';
+import { CategoryBadges } from './CategoryBadges';
+import { NewCategoryDialog } from './NewCategoryDialog';
 import { supabase } from '@/integrations/supabase/client';
+
 import { cn } from '@/lib/utils';
 
 interface CategorySelectProps {
@@ -37,10 +38,9 @@ export function CategorySelect({
   const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [categoriaPai, setCategoriaPai] = useState<Categoria | null>(null);
-  const [keepCreatingSub, setKeepCreatingSub] = useState(false); // novo estado
+  const [keepCreatingSub, setKeepCreatingSub] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Ensure value is always an array and handle undefined/null cases
   const normalizedValue = Array.isArray(value) ? value : [];
 
   useEffect(() => {
@@ -57,7 +57,6 @@ export function CategorySelect({
 
       if (error) throw error;
 
-      // Organizar categorias hierarquicamente
       const categoriasOrganizadas = organizarCategorias(data || []);
       setCategorias(categoriasOrganizadas);
     } catch (error) {
@@ -142,30 +141,32 @@ export function CategorySelect({
 
   const handleNewCategory = (categoriaPai?: Categoria) => {
     setCategoriaPai(categoriaPai || null);
-    setKeepCreatingSub(!!categoriaPai); // Se for subcategoria, inicia fluxo de múltiplos
+    setKeepCreatingSub(!!categoriaPai);
     setIsNewCategoryOpen(true);
     setOpen(false);
   };
 
-  // Função de sucesso do cadastro: se keepCreatingSub, mantem modal (para várias subcategorias)
   const handleCategorySuccess = () => {
     carregarCategorias();
     if (onNewCategory) onNewCategory();
     if (keepCreatingSub && categoriaPai) {
-      // Reinicia formulário mantendo o pai para criar outra sub
       setIsNewCategoryOpen(true);
     } else {
-      // Fecha modal normalmente
       setIsNewCategoryOpen(false);
       setCategoriaPai(null);
       setKeepCreatingSub(false);
     }
   };
 
-  // Botão para o usuário criar mais subcategorias
   const handleKeepCreatingSub = () => {
     setIsNewCategoryOpen(true);
     setKeepCreatingSub(true);
+  };
+
+  const handleDialogClose = () => {
+    setIsNewCategoryOpen(false);
+    setCategoriaPai(null);
+    setKeepCreatingSub(false);
   };
 
   return (
@@ -183,123 +184,27 @@ export function CategorySelect({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full p-0">
-          <Command>
-            <CommandInput placeholder="Buscar categoria..." />
-            <CommandList>
-              <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
-              <CommandGroup>
-                <CommandItem 
-                  key="new-category"
-                  onSelect={() => handleNewCategory()}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Nova Categoria Principal
-                </CommandItem>
-                {!loading && categorias.map((categoria) => (
-                  <div key={categoria.id}>
-                    <CommandItem
-                      value={categoria.nome}
-                      onSelect={() => handleSelect(categoria.id)}
-                      className={cn("cursor-pointer", {
-                        "pl-4": categoria.nivel === 1,
-                        "pl-8": categoria.nivel === 2,
-                        "pl-12": categoria.nivel >= 3,
-                      })}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          normalizedValue.includes(categoria.id) ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{categoria.nome}</div>
-                        {categoria.nivel > 0 && (
-                          <div className="text-xs text-gray-500">{categoria.caminho}</div>
-                        )}
-                      </div>
-                    </CommandItem>
-                    <CommandItem
-                      key={`sub-${categoria.id}`}
-                      onSelect={() => handleNewCategory(categoria)}
-                      className={cn("cursor-pointer text-blue-600 hover:text-blue-700", {
-                        "pl-6": categoria.nivel === 0,
-                        "pl-10": categoria.nivel === 1,
-                        "pl-14": categoria.nivel === 2,
-                        "pl-18": categoria.nivel >= 3,
-                      })}
-                    >
-                      <Plus className="mr-2 h-3 w-3" />
-                      <span className="text-xs">Adicionar subcategoria</span>
-                    </CommandItem>
-                  </div>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
+          <CategorySelectList 
+            categorias={categorias}
+            normalizedValue={normalizedValue}
+            loading={loading}
+            handleSelect={handleSelect}
+            handleNewCategory={handleNewCategory}
+          />
         </PopoverContent>
       </Popover>
-
       {/* Badges das categorias selecionadas */}
-      {selectedCategories.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {selectedCategories.map((categoria) => (
-            <Badge key={categoria.id} variant="secondary" className="flex items-center gap-1">
-              {categoria.caminho}
-              <button
-                onClick={() => removeCategory(categoria.id)}
-                className="ml-1 text-gray-500 hover:text-gray-700"
-              >
-                ×
-              </button>
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      {/* Modal para nova categoria */}
-      <Dialog open={isNewCategoryOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsNewCategoryOpen(false);
-          setCategoriaPai(null);
-          setKeepCreatingSub(false);
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {categoriaPai ? `Adicionar Subcategoria em "${categoriaPai.nome}"` : 'Nova Categoria'}
-            </DialogTitle>
-          </DialogHeader>
-          <NovaCategoriaForm 
-            categoriaPai={categoriaPai}
-            onSuccess={handleCategorySuccess}
-          />
-          {/* Se está criando subcategoria, mostra botão para criar outra */}
-          {keepCreatingSub && (
-            <div className="flex flex-col gap-2 mt-4">
-              <Button 
-                onClick={handleKeepCreatingSub}
-                variant="outline"
-                className="w-full"
-              >
-                Adicionar outra subcategoria
-              </Button>
-              <Button 
-                onClick={() => {
-                  setIsNewCategoryOpen(false);
-                  setCategoriaPai(null);
-                  setKeepCreatingSub(false);
-                }}
-                variant="ghost"
-                className="w-full"
-              >
-                Fechar
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <CategoryBadges selectedCategories={selectedCategories} removeCategory={removeCategory} />
+      {/* Modal para nova categoria/subcategoria */}
+      <NewCategoryDialog
+        open={isNewCategoryOpen}
+        onOpenChange={setIsNewCategoryOpen}
+        categoriaPai={categoriaPai}
+        keepCreatingSub={keepCreatingSub}
+        onSuccess={handleCategorySuccess}
+        onAddAnother={handleKeepCreatingSub}
+        onClose={handleDialogClose}
+      />
     </div>
   );
 }
