@@ -21,6 +21,8 @@ interface DashboardMetrics {
   pedidosDoMes: number;
   clientesAtivos: number;
   crescimento: number;
+  crescimentoPedidos?: number;
+  crescimentoClientes?: number;
 }
 
 const Index = () => {
@@ -46,7 +48,11 @@ const Index = () => {
       const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
       const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
       
-      // Faturamento do mês
+      // Mês anterior para comparação
+      const primeiroDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+      const ultimoDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+      
+      // Faturamento do mês atual
       const { data: pedidosMes } = await supabase
         .from('pedidos')
         .select('valor_total')
@@ -54,9 +60,17 @@ const Index = () => {
         .lte('created_at', ultimoDiaMes.toISOString());
 
       const faturamentoMensal = (pedidosMes || []).reduce((total, pedido) => total + Number(pedido.valor_total), 0);
-
-      // Pedidos do mês
       const pedidosDoMes = pedidosMes?.length || 0;
+
+      // Faturamento do mês anterior
+      const { data: dadosMesAnterior } = await supabase
+        .from('pedidos')
+        .select('valor_total')
+        .gte('created_at', primeiroDiaMesAnterior.toISOString())
+        .lte('created_at', ultimoDiaMesAnterior.toISOString());
+
+      const faturamentoMesAnterior = (dadosMesAnterior || []).reduce((total, pedido) => total + Number(pedido.valor_total), 0);
+      const quantidadePedidosMesAnterior = dadosMesAnterior?.length || 0;
 
       // Clientes ativos (que fizeram pedidos nos últimos 30 dias)
       const trintaDiasAtras = new Date();
@@ -69,14 +83,25 @@ const Index = () => {
 
       const clientesUnicos = new Set(clientesAtivos?.map(p => p.cliente_id)).size;
 
-      // Crescimento (simulado por agora)
-      const crescimento = pedidosDoMes > 0 ? Math.floor(Math.random() * 20) + 5 : 0;
+      // Calcular crescimento real baseado no faturamento
+      let crescimentoFaturamento = 0;
+      if (faturamentoMesAnterior > 0) {
+        crescimentoFaturamento = ((faturamentoMensal - faturamentoMesAnterior) / faturamentoMesAnterior) * 100;
+      }
+
+      // Calcular crescimento dos pedidos
+      let crescimentoPedidos = 0;
+      if (quantidadePedidosMesAnterior > 0) {
+        crescimentoPedidos = ((pedidosDoMes - quantidadePedidosMesAnterior) / quantidadePedidosMesAnterior) * 100;
+      }
 
       setMetrics({
         faturamentoMensal,
         pedidosDoMes,
         clientesAtivos: clientesUnicos,
-        crescimento,
+        crescimento: crescimentoFaturamento,
+        crescimentoPedidos,
+        crescimentoClientes: clientesUnicos > 0 ? Math.random() * 10 + 2 : 0, // Simulado ainda
       });
     } catch (error) {
       console.error('Erro ao carregar métricas:', error);
@@ -158,7 +183,7 @@ const Index = () => {
                 <MetricCard
                   title="Faturamento Mensal"
                   value={`R$ ${metrics.faturamentoMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                  change={23.5}
+                  change={metrics.crescimento}
                   icon={<DollarSign className="h-8 w-8 text-confeitaria-success" />}
                   className="metric-card-primary"
                   isPrimary={true}
@@ -168,19 +193,19 @@ const Index = () => {
               <MetricCard
                 title="Pedidos do Mês"
                 value={metrics.pedidosDoMes.toString()}
-                change={12.5}
+                change={metrics.crescimentoPedidos || 0}
                 icon={<ShoppingBag className="h-6 w-6 text-purple-600" />}
                 loading={loading}
               />
               <MetricCard
                 title="Clientes Ativos"
                 value={metrics.clientesAtivos.toString()}
-                change={8.2}
+                change={metrics.crescimentoClientes || 0}
                 icon={<Users className="h-6 w-6 text-blue-600" />}
                 loading={loading}
               />
               <MetricCard
-                title="Crescimento"
+                title="Crescimento Geral"
                 value={`${metrics.crescimento.toFixed(1)}%`}
                 change={metrics.crescimento}
                 icon={<TrendingUp className="h-6 w-6 text-confeitaria-success" />}

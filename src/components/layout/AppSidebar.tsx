@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Home, Users, Package, ShoppingCart, BarChart3, Settings, FolderTree } from 'lucide-react';
 import {
@@ -13,54 +13,95 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 
-const navigationItems = [
+const baseNavigationItems = [
   {
     title: 'Dashboard',
     url: '/',
     icon: Home,
-    count: null,
+    table: null as string | null,
   },
   {
     title: 'Pedidos',
     url: '/pedidos',
     icon: ShoppingCart,
-    count: 23,
+    table: 'pedidos' as const,
   },
   {
     title: 'Clientes',
     url: '/clientes',
     icon: Users,
-    count: 156,
+    table: 'clientes' as const,
   },
   {
     title: 'Produtos',
     url: '/produtos',
     icon: Package,
-    count: 45,
+    table: 'produtos' as const,
   },
   {
     title: 'Categorias',
     url: '/categorias',
     icon: FolderTree,
-    count: 12,
+    table: 'categorias' as const,
   },
   {
     title: 'Relatórios',
     url: '/relatorios',
     icon: BarChart3,
-    count: null,
+    table: null as string | null,
   },
   {
     title: 'Configurações',
     url: '/configuracoes',
     icon: Settings,
-    count: null,
+    table: null as string | null,
   },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
+  const [navigationItems, setNavigationItems] = useState(baseNavigationItems.map(item => ({ ...item, count: null })));
+
+  useEffect(() => {
+    const loadCounts = async () => {
+      const updatedItems = await Promise.all(
+        baseNavigationItems.map(async (item) => {
+          if (!item.table) {
+            return { ...item, count: null };
+          }
+
+          try {
+            let count = 0;
+            
+            if (item.table === 'pedidos') {
+              const { count: pedidosCount } = await supabase.from('pedidos').select('*', { count: 'exact', head: true });
+              count = pedidosCount || 0;
+            } else if (item.table === 'clientes') {
+              const { count: clientesCount } = await supabase.from('clientes').select('*', { count: 'exact', head: true });
+              count = clientesCount || 0;
+            } else if (item.table === 'produtos') {
+              const { count: produtosCount } = await supabase.from('produtos').select('*', { count: 'exact', head: true });
+              count = produtosCount || 0;
+            } else if (item.table === 'categorias') {
+              const { count: categoriasCount } = await supabase.from('categorias').select('*', { count: 'exact', head: true });
+              count = categoriasCount || 0;
+            }
+            
+            return { ...item, count };
+          } catch (error) {
+            console.error(`Erro ao carregar contagem de ${item.table}:`, error);
+            return { ...item, count: null };
+          }
+        })
+      );
+      
+      setNavigationItems(updatedItems);
+    };
+
+    loadCounts();
+  }, []);
 
   return (
     <Sidebar className="border-r border-gray-200">
@@ -99,7 +140,7 @@ export function AppSidebar() {
                           }`} />
                           <span className="font-medium">{item.title}</span>
                         </div>
-                        {item.count && (
+                        {item.count !== null && (
                           <Badge 
                             variant="secondary" 
                             className={`text-xs ${
