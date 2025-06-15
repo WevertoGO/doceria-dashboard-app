@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
@@ -19,6 +18,7 @@ const Categorias = () => {
   const [categoriaPai, setCategoriaPai] = useState<any>(null);
   const [categorias, setCategorias] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -35,8 +35,8 @@ const Categorias = () => {
 
       if (error) throw error;
 
-      // Contar produtos por categoria
-      const categoriasComContador = await Promise.all(
+      // Organizar categorias hierarquicamente
+      const categoriasOrganizadas = await Promise.all(
         (data || []).map(async (categoria) => {
           const { count } = await supabase
             .from('produtos')
@@ -47,13 +47,34 @@ const Categorias = () => {
           return {
             ...categoria,
             produtosCount: count || 0,
-            nivel: 0,
             subcategorias: [],
           };
         })
       );
 
-      setCategorias(categoriasComContador);
+      // Organizar hierarquia
+      const categoriaMap = new Map();
+      const categoriasRaiz: any[] = [];
+
+      categoriasOrganizadas.forEach(cat => {
+        categoriaMap.set(cat.id, { ...cat, subcategorias: [] });
+      });
+
+      categoriasOrganizadas.forEach(cat => {
+        const categoria = categoriaMap.get(cat.id);
+        if (cat.parent_id) {
+          const pai = categoriaMap.get(cat.parent_id);
+          if (pai) {
+            categoria.nivel = calcularNivel(categoria, categoriaMap);
+            pai.subcategorias.push(categoria);
+          }
+        } else {
+          categoria.nivel = 0;
+          categoriasRaiz.push(categoria);
+        }
+      });
+
+      setCategorias(categoriasRaiz);
     } catch (error) {
       console.error('Erro ao carregar categorias:', error);
       toast({
@@ -66,40 +87,68 @@ const Categorias = () => {
     }
   };
 
+  const calcularNivel = (categoria: any, categoriaMap: Map<string, any>): number => {
+    if (!categoria.parent_id) return 0;
+    const pai = categoriaMap.get(categoria.parent_id);
+    return pai ? calcularNivel(pai, categoriaMap) + 1 : 0;
+  };
+
   const handleEdit = (categoria: any) => {
     setCategoriaParaEditar(categoria);
     setIsEditarCategoriaOpen(true);
   };
 
   const handleDelete = async (categoria: any) => {
-    const confirm = window.confirm(
-      `Deseja realmente excluir a categoria "${categoria.nome}"?\n\nATENÇÃO: Todas as subcategorias desse nível e inferiores serão excluídas também! Esta ação não pode ser desfeita.`
-    );
-
-    if (!confirm) return;
-
     try {
-      const { error } = await supabase
-        .from('categorias')
-        .delete()
-        .eq('id', categoria.id);
+      const { data: resultado, error } = await supabase
+        .rpc('soft_delete_categoria', { categoria_uuid: categoria.id });
 
       if (error) throw error;
 
-      toast({
-        title: "Categoria excluída",
-        description: "A categoria e todas as suas subcategorias foram excluídas com sucesso.",
-        variant: "default",
-      });
-
-      carregarCategorias();
+      switch (resultado) {
+        case 'PRODUTOS_VINCULADOS':
+          toast({
+            title: "Não é possível excluir",
+            description: "Esta categoria possui produtos ativos vinculados.",
+            variant: "destructive",
+          });
+          break;
+        case 'SUBCATEGORIAS_VINCULADAS':
+          toast({
+            title: "Não é possível excluir",
+            description: "Esta categoria possui subcategorias. Exclua primeiro as subcategorias.",
+            variant: "destructive",
+          });
+          break;
+        case 'PEDIDOS_VINCULADOS':
+          toast({
+            title: "Não é possível excluir",
+            description: "Esta categoria está vinculada a pedidos existentes.",
+            variant: "destructive",
+          });
+          break;
+        case 'DELETADO':
+          toast({
+            title: "Categoria excluída",
+            description: "A categoria foi excluída com sucesso.",
+            variant: "default",
+          });
+          carregarCategorias();
+          break;
+        default:
+          toast({
+            title: "Erro inesperado",
+            description: "Ocorreu um erro ao excluir a categoria.",
+            variant: "destructive",
+          });
+      }
     } catch (error) {
+      console.error("Erro ao excluir categoria:", error);
       toast({
         title: "Erro ao excluir",
-        description: "Não foi possível excluir a categoria. Verifique se não há produtos vinculados.",
+        description: "Não foi possível excluir a categoria.",
         variant: "destructive",
       });
-      console.error("Erro ao excluir categoria:", error);
     }
   };
 
@@ -107,6 +156,10 @@ const Categorias = () => {
     setCategoriaPai(categoriaPai);
     setIsNovaCategoriaOpen(true);
   };
+
+  const categoriasFiltradas = categorias.filter(categoria =>
+    categoria.nome.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <SidebarProvider>
@@ -142,6 +195,7 @@ const Categorias = () => {
                     onSuccess={() => {
                       setIsNovaCategoriaOpen(false);
                       setCategoriaPai(null);
+                      carregarCategorias();
                     }} 
                   />
                 </DialogContent>
@@ -157,18 +211,18 @@ const Categorias = () => {
                     <Input
                       placeholder="Buscar categorias..."
                       className="pl-10"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                 </div>
-                <Button variant="outline">Expandir Todas</Button>
-                <Button variant="outline">Recolher Todas</Button>
               </div>
             </div>
 
             {/* Árvore de Categorias */}
             <div className="section-card">
               <CategoriaTree
-                categorias={categorias}
+                categorias={categoriasFiltradas}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onAddSubcategoria={handleAddSubcategoria}
@@ -189,6 +243,7 @@ const Categorias = () => {
                   onSuccess={() => {
                     setIsEditarCategoriaOpen(false);
                     setCategoriaParaEditar(null);
+                    carregarCategorias();
                   }} 
                 />
               )}

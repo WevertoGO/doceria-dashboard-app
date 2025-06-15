@@ -33,7 +33,7 @@ export function CategoriaTree({
           <CategoriaTreeItem
             key={categoria.id}
             categoria={categoria}
-            nivel={0}
+            nivel={categoria.nivel || 0}
             onEdit={onEdit}
             onDelete={onDelete}
             onAddSubcategoria={onAddSubcategoria}

@@ -219,11 +219,31 @@ export type Database = {
         Args: { categoria_uuid: string }
         Returns: boolean
       }
+      categoria_tem_produtos_hierarquica: {
+        Args: { categoria_uuid: string }
+        Returns: boolean
+      }
       cliente_tem_pedidos: {
         Args: { cliente_uuid: string }
         Returns: boolean
       }
+      get_categoria_path: {
+        Args: { categoria_uuid: string }
+        Returns: string
+      }
       produto_tem_pedidos: {
+        Args: { produto_uuid: string }
+        Returns: boolean
+      }
+      soft_delete_categoria: {
+        Args: { categoria_uuid: string }
+        Returns: string
+      }
+      soft_delete_cliente: {
+        Args: { cliente_uuid: string }
+        Returns: boolean
+      }
+      soft_delete_produto: {
         Args: { produto_uuid: string }
         Returns: boolean
       }

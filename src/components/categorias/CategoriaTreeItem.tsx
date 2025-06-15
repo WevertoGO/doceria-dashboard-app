@@ -54,6 +54,7 @@ export function CategoriaTreeItem({
             variant="ghost"
             onClick={() => onAddSubcategoria(categoria)}
             className="h-7 w-7 p-0"
+            title="Adicionar subcategoria"
           >
             <Plus className="h-3 w-3" />
           </Button>
@@ -62,6 +63,7 @@ export function CategoriaTreeItem({
             variant="ghost"
             onClick={() => onEdit(categoria)}
             className="h-7 w-7 p-0"
+            title="Editar categoria"
           >
             <Edit className="h-3 w-3" />
           </Button>
@@ -70,6 +72,7 @@ export function CategoriaTreeItem({
             variant="ghost"
             onClick={() => onDelete(categoria)}
             className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+            title="Excluir categoria"
           >
             <Trash2 className="h-3 w-3" />
           </Button>

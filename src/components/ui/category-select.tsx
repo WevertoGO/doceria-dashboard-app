@@ -18,6 +18,15 @@ interface CategorySelectProps {
   onNewCategory?: () => void;
 }
 
+interface Categoria {
+  id: string;
+  nome: string;
+  parent_id: string | null;
+  nivel: number;
+  caminho: string;
+  subcategorias: Categoria[];
+}
+
 export function CategorySelect({ 
   value = [], 
   onChange, 
@@ -27,12 +36,12 @@ export function CategorySelect({
 }: CategorySelectProps) {
   const [open, setOpen] = useState(false);
   const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
-  const [categorias, setCategorias] = useState<any[]>([]);
-  const [categoriaPai, setCategoriaPai] = useState<any>(null);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [categoriaPai, setCategoriaPai] = useState<Categoria | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Ensure value is always an array and handle undefined/null cases
-  const normalizedValue = Array.isArray(value) ? value : [];
+  const normalizedValue = Array.isArray(value) ? value.map(String) : [];
 
   useEffect(() => {
     carregarCategorias();
@@ -58,30 +67,61 @@ export function CategorySelect({
     }
   };
 
-  const organizarCategorias = (categorias: any[]) => {
-    const categoriasComNivel = categorias.map(categoria => {
-      const nivel = calcularNivel(categoria, categorias);
-      const caminho = construirCaminho(categoria, categorias);
-      return {
-        ...categoria,
-        nivel,
-        caminho
-      };
+  const organizarCategorias = (categorias: any[]): Categoria[] => {
+    const categoriaMap = new Map<string, Categoria>();
+    const categoriasRaiz: Categoria[] = [];
+
+    // Primeiro, criar o mapa de todas as categorias
+    categorias.forEach(cat => {
+      categoriaMap.set(cat.id, {
+        ...cat,
+        nivel: 0,
+        caminho: cat.nome,
+        subcategorias: []
+      });
     });
 
-    return categoriasComNivel.sort((a, b) => a.caminho.localeCompare(b.caminho));
+    // Depois, organizar a hierarquia
+    categorias.forEach(cat => {
+      const categoria = categoriaMap.get(cat.id)!;
+      
+      if (cat.parent_id) {
+        const pai = categoriaMap.get(cat.parent_id);
+        if (pai) {
+          categoria.nivel = calcularNivel(categoria, categoriaMap);
+          categoria.caminho = construirCaminho(categoria, categoriaMap);
+          pai.subcategorias.push(categoria);
+        }
+      } else {
+        categoriasRaiz.push(categoria);
+      }
+    });
+
+    // Retornar lista plana para o select (ordenada por caminho)
+    const listaPlana: Categoria[] = [];
+    
+    const adicionarRecursivo = (cats: Categoria[]) => {
+      cats.sort((a, b) => a.nome.localeCompare(b.nome));
+      cats.forEach(cat => {
+        listaPlana.push(cat);
+        adicionarRecursivo(cat.subcategorias);
+      });
+    };
+
+    adicionarRecursivo(categoriasRaiz);
+    return listaPlana;
   };
 
-  const calcularNivel = (categoria: any, categorias: any[], nivel = 0): number => {
-    if (!categoria.parent_id) return nivel;
-    const pai = categorias.find(c => c.id === categoria.parent_id);
-    return pai ? calcularNivel(pai, categorias, nivel + 1) : nivel;
+  const calcularNivel = (categoria: Categoria, categoriaMap: Map<string, Categoria>): number => {
+    if (!categoria.parent_id) return 0;
+    const pai = categoriaMap.get(categoria.parent_id);
+    return pai ? calcularNivel(pai, categoriaMap) + 1 : 0;
   };
 
-  const construirCaminho = (categoria: any, categorias: any[]): string => {
+  const construirCaminho = (categoria: Categoria, categoriaMap: Map<string, Categoria>): string => {
     if (!categoria.parent_id) return categoria.nome;
-    const pai = categorias.find(c => c.id === categoria.parent_id);
-    return pai ? `${construirCaminho(pai, categorias)} > ${categoria.nome}` : categoria.nome;
+    const pai = categoriaMap.get(categoria.parent_id);
+    return pai ? `${construirCaminho(pai, categoriaMap)} > ${categoria.nome}` : categoria.nome;
   };
   
   const selectedCategories = useMemo(() => 
@@ -89,7 +129,7 @@ export function CategorySelect({
     [normalizedValue, categorias]
   );
 
-  const handleSelect = (categoriaId: number) => {
+  const handleSelect = (categoriaId: string) => {
     if (multiple) {
       const newValue = normalizedValue.includes(categoriaId)
         ? normalizedValue.filter(id => id !== categoriaId)
@@ -101,11 +141,11 @@ export function CategorySelect({
     }
   };
 
-  const removeCategory = (categoriaId: number) => {
+  const removeCategory = (categoriaId: string) => {
     onChange(normalizedValue.filter(id => id !== categoriaId));
   };
 
-  const handleNewCategory = (categoriaPai?: any) => {
+  const handleNewCategory = (categoriaPai?: Categoria) => {
     setCategoriaPai(categoriaPai || null);
     setIsNewCategoryOpen(true);
     setOpen(false);
@@ -166,7 +206,9 @@ export function CategorySelect({
                       />
                       <div className="flex-1">
                         <div className="font-medium">{categoria.nome}</div>
-                        <div className="text-xs text-gray-500">{categoria.caminho}</div>
+                        {categoria.nivel > 0 && (
+                          <div className="text-xs text-gray-500">{categoria.caminho}</div>
+                        )}
                       </div>
                     </CommandItem>
                     <CommandItem
