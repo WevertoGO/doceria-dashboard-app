@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,9 +32,8 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
   const atualizarTelefone = (index: number, valor: string) => {
     // Remove todos os caracteres não numéricos
     const apenasNumeros = valor.replace(/\D/g, '');
-    
     let telefoneFormatado = '';
-    
+
     if (apenasNumeros.length <= 2) {
       telefoneFormatado = apenasNumeros;
     } else if (apenasNumeros.length <= 3) {
@@ -58,24 +57,17 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
     return regexTelefone.test(telefone);
   };
 
+  // REMOVE telefone do cliente principal, salva tudo em cliente_telefones
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!nome.trim()) {
-      toast({
-        title: 'Erro',
-        description: 'Nome é obrigatório',
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro', description: 'Nome é obrigatório', variant: 'destructive' });
       return;
     }
 
     if (!telefones[0].trim()) {
-      toast({
-        title: 'Erro',
-        description: 'Pelo menos um telefone é obrigatório',
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro', description: 'Pelo menos um telefone é obrigatório', variant: 'destructive' });
       return;
     }
 
@@ -88,7 +80,6 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
       return;
     }
 
-    // Validar telefones adicionais se preenchidos
     for (let i = 1; i < telefones.length; i++) {
       if (telefones[i].trim() && !validarTelefone(telefones[i])) {
         toast({
@@ -102,24 +93,32 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
 
     try {
       setLoading(true);
-      
-      const { error } = await supabase
+      // Cria cliente, não inclui telefone na tabela principal
+      const { data: cliente, error } = await supabase
         .from('clientes')
         .insert({
           nome: nome.trim(),
-          telefone: telefones[0].trim(),
           email: email.trim() || null,
           endereco: endereco.trim() || null,
           observacoes: observacoes.trim() || null,
-        });
+          // telefone: null,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+      if (!cliente) throw new Error("Não foi possível criar o cliente.");
 
-      toast({
-        title: 'Sucesso',
-        description: 'Cliente cadastrado com sucesso!',
-      });
-      
+      // Insere todos os telefones
+      const validTelefones = telefones.filter((t) => t.trim().length > 0);
+      for (const telefone of validTelefones) {
+        await supabase.from('cliente_telefones').insert({
+          cliente_id: cliente.id,
+          telefone,
+        });
+      }
+
+      toast({ title: 'Sucesso', description: 'Cliente cadastrado com sucesso!' });
       onSuccess();
     } catch (error) {
       console.error('Erro ao cadastrar cliente:', error);

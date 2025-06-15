@@ -35,42 +35,25 @@ const Categorias = () => {
 
       if (error) throw error;
 
-      // Organizar categorias hierarquicamente
-      const categoriasOrganizadas = await Promise.all(
-        (data || []).map(async (categoria) => {
-          const { count } = await supabase
-            .from('produtos')
-            .select('*', { count: 'exact', head: true })
-            .eq('categoria_id', categoria.id)
-            .eq('ativo', true);
-
-          return {
-            ...categoria,
-            produtosCount: count || 0,
-            subcategorias: [],
-          };
-        })
-      );
-
-      // Organizar hierarquia
+      // Organizar categorias hierarquicamente corretamente!
+      // 1 - criar um mapa de categorias
       const categoriaMap = new Map();
-      const categoriasRaiz: any[] = [];
-
-      categoriasOrganizadas.forEach(cat => {
+      (data || []).forEach(cat => {
         categoriaMap.set(cat.id, { ...cat, subcategorias: [] });
       });
 
-      categoriasOrganizadas.forEach(cat => {
-        const categoria = categoriaMap.get(cat.id);
+      // 2 - montar árvore
+      const categoriasRaiz: any[] = [];
+      categoriaMap.forEach(cat => {
         if (cat.parent_id) {
           const pai = categoriaMap.get(cat.parent_id);
           if (pai) {
-            categoria.nivel = calcularNivel(categoria, categoriaMap);
-            pai.subcategorias.push(categoria);
+            cat.nivel = pai.nivel !== undefined ? pai.nivel + 1 : 1;
+            pai.subcategorias.push(cat);
           }
         } else {
-          categoria.nivel = 0;
-          categoriasRaiz.push(categoria);
+          cat.nivel = 0;
+          categoriasRaiz.push(cat);
         }
       });
 

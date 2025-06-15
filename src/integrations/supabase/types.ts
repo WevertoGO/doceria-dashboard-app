@@ -44,6 +44,35 @@ export type Database = {
           },
         ]
       }
+      cliente_telefones: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          id: string
+          telefone: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          id?: string
+          telefone: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          telefone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_telefones_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           created_at: string

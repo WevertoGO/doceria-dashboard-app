@@ -7,6 +7,26 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+// Helper to get all products (ID + nome + unidade for listing)
+async function fetchProdutos() {
+  const { data, error } = await supabase
+    .from('produtos')
+    .select('id, nome, unidade, preco, ativo')
+    .eq('ativo', true)
+    .order('nome');
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchPedidoProdutos(pedidoId: string) {
+  const { data, error } = await supabase
+    .from('pedido_produtos')
+    .select('produto_id, quantidade')
+    .eq('pedido_id', pedidoId);
+  if (error) throw error;
+  return data || [];
+}
+
 interface EditarPedidoFormProps {
   pedido: any;
   onSuccess: () => void;
@@ -18,6 +38,8 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
     observacoes: ''
   });
   const [loading, setLoading] = useState(false);
+  const [produtosDisponiveis, setProdutosDisponiveis] = useState<any[]>([]);
+  const [produtosSelecionados, setProdutosSelecionados] = useState<{ produto_id: string, quantidade: number }[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -29,9 +51,53 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
     }
   }, [pedido]);
 
+  useEffect(() => {
+    // Load all products and current product selections for the order
+    (async () => {
+      const produtos = await fetchProdutos();
+      setProdutosDisponiveis(produtos);
+
+      const produtosPedido = await fetchPedidoProdutos(pedido.id);
+      setProdutosSelecionados(
+        produtosPedido.map((pp: any) => ({
+          produto_id: pp.produto_id,
+          quantidade: pp.quantidade
+        }))
+      );
+    })();
+    // eslint-disable-next-line
+  }, [pedido.id]);
+
+  const handleProdutoQtdChange = (produto_id: string, qtd: number) => {
+    if (qtd <= 0) {
+      setProdutosSelecionados((prev) => prev.filter((p) => p.produto_id !== produto_id));
+    } else {
+      setProdutosSelecionados((prev) => {
+        const exists = prev.find((p) => p.produto_id === produto_id);
+        if (exists) {
+          return prev.map((p) => (p.produto_id === produto_id ? { ...p, quantidade: qtd } : p));
+        }
+        return [...prev, { produto_id, quantidade: qtd }];
+      });
+    }
+  };
+
+  const handleAddProduto = (produto_id: string) => {
+    setProdutosSelecionados((prev) => {
+      if (prev.some((p) => p.produto_id === produto_id)) return prev;
+      return [...prev, { produto_id, quantidade: 1 }];
+    });
+  };
+
+  const handleRemoveProduto = (produto_id: string) => {
+    setProdutosSelecionados((prev) => prev.filter((p) => p.produto_id !== produto_id));
+  };
+
+  const hoje = new Date().toISOString().split('T')[0];
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (pedido.status === 'finalizado') {
       toast({
         title: 'Erro',
@@ -50,8 +116,6 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
       return;
     }
 
-    // Validar se a data não é no passado
-    const hoje = new Date().toISOString().split('T')[0];
     if (formData.data_entrega < hoje) {
       toast({
         title: 'Erro',
@@ -61,10 +125,20 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
       return;
     }
 
+    if (produtosSelecionados.length === 0) {
+      toast({
+        title: 'Erro',
+        description: 'Inclua pelo menos um produto ao pedido.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setLoading(true);
-      
-      const { error } = await supabase
+
+      // Atualiza o pedido (data_entrega, observações)
+      const { error: pedidoError } = await supabase
         .from('pedidos')
         .update({
           data_entrega: formData.data_entrega,
@@ -72,17 +146,30 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
         })
         .eq('id', pedido.id);
 
-      if (error) throw error;
+      if (pedidoError) throw pedidoError;
 
-      toast({
-        title: 'Sucesso',
-        description: 'Pedido atualizado com sucesso!',
-      });
-      
+      // Remove produtos antigos desse pedido
+      await supabase.from('pedido_produtos').delete().eq('pedido_id', pedido.id);
+
+      // Adiciona os produtos atuais
+      for (const item of produtosSelecionados) {
+        // Busca info do produto para preço
+        const produto = produtosDisponiveis.find((p) => p.id === item.produto_id);
+        await supabase.from('pedido_produtos').insert({
+          pedido_id: pedido.id,
+          produto_id: item.produto_id,
+          quantidade: item.quantidade,
+          preco_unitario: produto?.preco || 0,
+          subtotal: (produto?.preco || 0) * item.quantidade,
+        });
+      }
+
+      toast({ title: 'Sucesso', description: 'Pedido atualizado com sucesso!' });
       onSuccess();
+
     } catch (error: any) {
       console.error('Erro ao editar pedido:', error);
-      
+
       if (error.message?.includes('Data de entrega não pode ser no passado')) {
         toast({
           title: 'Erro',
@@ -100,8 +187,6 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
       setLoading(false);
     }
   };
-
-  const hoje = new Date().toISOString().split('T')[0];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -142,6 +227,57 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
             ⚠️ Data selecionada está no passado. Selecione uma data válida.
           </p>
         )}
+      </div>
+
+      <div>
+        <Label>Produtos do Pedido *</Label>
+        <div className="space-y-1">
+          {produtosSelecionados.map((item, idx) => {
+            const produto = produtosDisponiveis.find(p => p.id === item.produto_id);
+            return (
+              <div key={item.produto_id} className="flex items-center gap-2">
+                <span className="flex-1">{produto?.nome} ({produto?.unidade})</span>
+                <Input
+                  type="number"
+                  min="1"
+                  value={item.quantidade}
+                  className="w-16"
+                  onChange={e => handleProdutoQtdChange(item.produto_id, Math.max(1, Number(e.target.value)))}
+                  disabled={pedido.status === 'finalizado'}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleRemoveProduto(item.produto_id)}
+                  disabled={pedido.status === 'finalizado'}
+                >Remover</Button>
+              </div>
+            );
+          })}
+        </div>
+        {/* Selector para adicionar mais produtos ao pedido */}
+        <div className="flex gap-2 mt-2">
+          <select
+            className="w-full rounded border px-2 py-1"
+            disabled={pedido.status === 'finalizado'}
+            onChange={e => {
+              const produto_id = e.target.value;
+              if (produto_id) handleAddProduto(produto_id);
+              e.target.value = '';
+            }}
+            defaultValue=""
+          >
+            <option value="">Adicionar produto...</option>
+            {produtosDisponiveis
+              .filter(p => !produtosSelecionados.find(sel => sel.produto_id === p.id))
+              .map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.nome} ({p.unidade})
+                </option>
+              ))}
+          </select>
+        </div>
       </div>
 
       <div>
