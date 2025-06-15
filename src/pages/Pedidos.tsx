@@ -5,9 +5,12 @@ import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter } from 'lucide-react';
+import { Plus, Search, Filter, Edit, RefreshCw, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { NovoPedidoForm } from '@/components/forms/NovoPedidoForm';
+import { EditarPedidoForm } from '@/components/forms/EditarPedidoForm';
+import { AlterarStatusForm } from '@/components/forms/AlterarStatusForm';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,6 +19,7 @@ const statusColors = {
   producao: 'bg-yellow-50 text-yellow-700 border-yellow-200',
   pronto: 'bg-green-50 text-green-700 border-green-200',
   retirado: 'bg-gray-50 text-gray-700 border-gray-200',
+  finalizado: 'bg-purple-50 text-purple-700 border-purple-200',
 };
 
 const statusLabels = {
@@ -23,10 +27,14 @@ const statusLabels = {
   producao: 'Em Produção',
   pronto: 'Pronto',
   retirado: 'Retirado',
+  finalizado: 'Finalizado',
 };
 
 const Pedidos = () => {
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
+  const [isEditOrderOpen, setIsEditOrderOpen] = useState(false);
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
+  const [pedidoSelecionado, setPedidoSelecionado] = useState<any>(null);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [metricas, setMetricas] = useState({
@@ -34,6 +42,7 @@ const Pedidos = () => {
     producao: 0,
     prontos: 0,
     retirados: 0,
+    finalizados: 0,
   });
   const { toast } = useToast();
 
@@ -103,10 +112,56 @@ const Pedidos = () => {
         producao: contadores.producao || 0,
         prontos: contadores.pronto || 0,
         retirados: contadores.retirado || 0,
+        finalizados: contadores.finalizado || 0,
       });
     } catch (error) {
       console.error('Erro ao carregar métricas:', error);
     }
+  };
+
+  const excluirPedido = async (pedidoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('pedidos')
+        .delete()
+        .eq('id', pedidoId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sucesso',
+        description: 'Pedido excluído com sucesso!',
+      });
+      
+      carregarPedidos();
+      carregarMetricas();
+    } catch (error: any) {
+      console.error('Erro ao excluir pedido:', error);
+      toast({
+        title: 'Erro',
+        description: error.message || 'Não foi possível excluir o pedido.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const abrirEditarPedido = (pedido: any) => {
+    setPedidoSelecionado(pedido);
+    setIsEditOrderOpen(true);
+  };
+
+  const abrirAlterarStatus = (pedido: any) => {
+    setPedidoSelecionado(pedido);
+    setIsStatusOpen(true);
+  };
+
+  const handleSuccess = () => {
+    setIsNewOrderOpen(false);
+    setIsEditOrderOpen(false);
+    setIsStatusOpen(false);
+    setPedidoSelecionado(null);
+    carregarPedidos();
+    carregarMetricas();
   };
 
   return (
@@ -134,17 +189,13 @@ const Pedidos = () => {
                   <DialogHeader>
                     <DialogTitle>Novo Pedido</DialogTitle>
                   </DialogHeader>
-                  <NovoPedidoForm onSuccess={() => {
-                    setIsNewOrderOpen(false);
-                    carregarPedidos();
-                    carregarMetricas();
-                  }} />
+                  <NovoPedidoForm onSuccess={handleSuccess} />
                 </DialogContent>
               </Dialog>
             </div>
 
             {/* Métricas */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
               <div className="metric-card text-center">
                 <h3 className="text-2xl font-bold text-blue-600">{metricas.recebidos}</h3>
                 <p className="text-sm text-gray-600">Recebidos</p>
@@ -160,6 +211,10 @@ const Pedidos = () => {
               <div className="metric-card text-center">
                 <h3 className="text-2xl font-bold text-gray-600">{metricas.retirados}</h3>
                 <p className="text-sm text-gray-600">Retirados</p>
+              </div>
+              <div className="metric-card text-center">
+                <h3 className="text-2xl font-bold text-purple-600">{metricas.finalizados}</h3>
+                <p className="text-sm text-gray-600">Finalizados</p>
               </div>
             </div>
 
@@ -213,8 +268,54 @@ const Pedidos = () => {
                       <div className="text-right">
                         <p className="text-lg font-bold text-green-600">R$ {Number(pedido.valor_total).toFixed(2)}</p>
                         <div className="flex gap-2 mt-2">
-                          <Button size="sm" variant="outline">Editar</Button>
-                          <Button size="sm" variant="outline">Alterar Status</Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => abrirEditarPedido(pedido)}
+                            disabled={pedido.status === 'finalizado'}
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Editar
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => abrirAlterarStatus(pedido)}
+                            disabled={pedido.status === 'finalizado'}
+                          >
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Status
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                disabled={pedido.status === 'finalizado'}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Excluir
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja excluir este pedido? Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => excluirPedido(pedido.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
                     </div>
@@ -225,6 +326,29 @@ const Pedidos = () => {
           </div>
         </main>
       </div>
+
+      {/* Modals */}
+      <Dialog open={isEditOrderOpen} onOpenChange={setIsEditOrderOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Pedido</DialogTitle>
+          </DialogHeader>
+          {pedidoSelecionado && (
+            <EditarPedidoForm pedido={pedidoSelecionado} onSuccess={handleSuccess} />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isStatusOpen} onOpenChange={setIsStatusOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Alterar Status do Pedido</DialogTitle>
+          </DialogHeader>
+          {pedidoSelecionado && (
+            <AlterarStatusForm pedido={pedidoSelecionado} onSuccess={handleSuccess} />
+          )}
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 };

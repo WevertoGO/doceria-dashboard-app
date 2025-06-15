@@ -204,7 +204,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      categoria_tem_pedidos: {
+        Args: { categoria_uuid: string }
+        Returns: boolean
+      }
+      cliente_tem_pedidos: {
+        Args: { cliente_uuid: string }
+        Returns: boolean
+      }
+      produto_tem_pedidos: {
+        Args: { produto_uuid: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
