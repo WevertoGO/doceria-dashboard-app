@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,7 +56,6 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
     return regexTelefone.test(telefone);
   };
 
-  // REMOVE telefone do cliente principal, salva tudo em cliente_telefones
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -93,7 +91,9 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
 
     try {
       setLoading(true);
-      // Cria cliente, não inclui telefone na tabela principal
+      console.log('Criando cliente:', { nome, telefones, email, endereco, observacoes });
+      
+      // Cria cliente sem telefone na tabela principal
       const { data: cliente, error } = await supabase
         .from('clientes')
         .insert({
@@ -101,30 +101,53 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
           email: email.trim() || null,
           endereco: endereco.trim() || null,
           observacoes: observacoes.trim() || null,
-          // telefone: null,
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao criar cliente:', error);
+        throw error;
+      }
+      
       if (!cliente) throw new Error("Não foi possível criar o cliente.");
 
-      // Insere todos os telefones
+      console.log('Cliente criado:', cliente);
+
+      // Insere todos os telefones válidos na tabela cliente_telefones
       const validTelefones = telefones.filter((t) => t.trim().length > 0);
+      console.log('Inserindo telefones:', validTelefones);
+      
       for (const telefone of validTelefones) {
-        await supabase.from('cliente_telefones').insert({
-          cliente_id: cliente.id,
-          telefone,
-        });
+        const { error: telefoneError } = await supabase
+          .from('cliente_telefones')
+          .insert({
+            cliente_id: cliente.id,
+            telefone: telefone.trim(),
+          });
+          
+        if (telefoneError) {
+          console.error('Erro ao inserir telefone:', telefoneError);
+          throw telefoneError;
+        }
       }
 
+      console.log('Telefones inseridos com sucesso');
       toast({ title: 'Sucesso', description: 'Cliente cadastrado com sucesso!' });
+      
+      // Limpar formulário
+      setNome('');
+      setTelefones(['']);
+      setEmail('');
+      setEndereco('');
+      setObservacoes('');
+      
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao cadastrar cliente:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível cadastrar o cliente.',
+        description: error.message || 'Não foi possível cadastrar o cliente.',
         variant: 'destructive',
       });
     } finally {

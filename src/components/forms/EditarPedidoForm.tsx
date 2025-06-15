@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Plus, Minus } from 'lucide-react';
 
 // Helper to get all products (ID + nome + unidade for listing)
 async function fetchProdutos() {
@@ -54,19 +55,29 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
   useEffect(() => {
     // Load all products and current product selections for the order
     (async () => {
-      const produtos = await fetchProdutos();
-      setProdutosDisponiveis(produtos);
+      try {
+        const produtos = await fetchProdutos();
+        setProdutosDisponiveis(produtos);
 
-      const produtosPedido = await fetchPedidoProdutos(pedido.id);
-      setProdutosSelecionados(
-        produtosPedido.map((pp: any) => ({
-          produto_id: pp.produto_id,
-          quantidade: pp.quantidade
-        }))
-      );
+        const produtosPedido = await fetchPedidoProdutos(pedido.id);
+        setProdutosSelecionados(
+          produtosPedido.map((pp: any) => ({
+            produto_id: pp.produto_id,
+            quantidade: pp.quantidade
+          }))
+        );
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+      }
     })();
     // eslint-disable-next-line
   }, [pedido.id]);
+
+  // Calcular valor total dos produtos selecionados
+  const valorTotal = produtosSelecionados.reduce((total, item) => {
+    const produto = produtosDisponiveis.find(p => p.id === item.produto_id);
+    return total + ((produto?.preco || 0) * item.quantidade);
+  }, 0);
 
   const handleProdutoQtdChange = (produto_id: string, qtd: number) => {
     if (qtd <= 0) {
@@ -136,13 +147,15 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
 
     try {
       setLoading(true);
+      console.log('Atualizando pedido:', { formData, produtosSelecionados, valorTotal });
 
-      // Atualiza o pedido (data_entrega, observações)
+      // Atualiza o pedido (data_entrega, observações e valor_total)
       const { error: pedidoError } = await supabase
         .from('pedidos')
         .update({
           data_entrega: formData.data_entrega,
-          observacoes: formData.observacoes.trim() || null
+          observacoes: formData.observacoes.trim() || null,
+          valor_total: valorTotal
         })
         .eq('id', pedido.id);
 
@@ -155,15 +168,18 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
       for (const item of produtosSelecionados) {
         // Busca info do produto para preço
         const produto = produtosDisponiveis.find((p) => p.id === item.produto_id);
-        await supabase.from('pedido_produtos').insert({
+        const { error: itemError } = await supabase.from('pedido_produtos').insert({
           pedido_id: pedido.id,
           produto_id: item.produto_id,
           quantidade: item.quantidade,
           preco_unitario: produto?.preco || 0,
           subtotal: (produto?.preco || 0) * item.quantidade,
         });
+        
+        if (itemError) throw itemError;
       }
 
+      console.log('Pedido atualizado com sucesso');
       toast({ title: 'Sucesso', description: 'Pedido atualizado com sucesso!' });
       onSuccess();
 
@@ -202,7 +218,7 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
       <div>
         <Label htmlFor="valor_total">Valor Total</Label>
         <Input
-          value={`R$ ${Number(pedido.valor_total).toFixed(2)}`}
+          value={`R$ ${valorTotal.toFixed(2)}`}
           disabled
           className="bg-gray-100"
         />
@@ -231,52 +247,87 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
 
       <div>
         <Label>Produtos do Pedido *</Label>
-        <div className="space-y-1">
-          {produtosSelecionados.map((item, idx) => {
+        <div className="space-y-2">
+          {produtosSelecionados.map((item) => {
             const produto = produtosDisponiveis.find(p => p.id === item.produto_id);
             return (
-              <div key={item.produto_id} className="flex items-center gap-2">
-                <span className="flex-1">{produto?.nome} ({produto?.unidade})</span>
-                <Input
-                  type="number"
-                  min="1"
-                  value={item.quantidade}
-                  className="w-16"
-                  onChange={e => handleProdutoQtdChange(item.produto_id, Math.max(1, Number(e.target.value)))}
-                  disabled={pedido.status === 'finalizado'}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleRemoveProduto(item.produto_id)}
-                  disabled={pedido.status === 'finalizado'}
-                >Remover</Button>
+              <div key={item.produto_id} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <span className="font-medium">{produto?.nome} ({produto?.unidade})</span>
+                  <div className="text-sm text-gray-600">R$ {produto?.preco?.toFixed(2) || '0,00'} cada</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleProdutoQtdChange(item.produto_id, item.quantidade - 1)}
+                    disabled={pedido.status === 'finalizado'}
+                  >
+                    <Minus className="h-3 w-3" />
+                  </Button>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={item.quantidade}
+                    className="w-20 text-center"
+                    onChange={e => handleProdutoQtdChange(item.produto_id, Math.max(1, Number(e.target.value)))}
+                    disabled={pedido.status === 'finalizado'}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleProdutoQtdChange(item.produto_id, item.quantidade + 1)}
+                    disabled={pedido.status === 'finalizado'}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleRemoveProduto(item.produto_id)}
+                    disabled={pedido.status === 'finalizado'}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    Remover
+                  </Button>
+                </div>
+                <div className="text-sm font-medium min-w-[80px] text-right">
+                  R$ {((produto?.preco || 0) * item.quantidade).toFixed(2)}
+                </div>
               </div>
             );
           })}
         </div>
+        
         {/* Selector para adicionar mais produtos ao pedido */}
-        <div className="flex gap-2 mt-2">
-          <select
-            className="w-full rounded border px-2 py-1"
-            disabled={pedido.status === 'finalizado'}
-            onChange={e => {
-              const produto_id = e.target.value;
-              if (produto_id) handleAddProduto(produto_id);
-              e.target.value = '';
-            }}
-            defaultValue=""
-          >
-            <option value="">Adicionar produto...</option>
-            {produtosDisponiveis
-              .filter(p => !produtosSelecionados.find(sel => sel.produto_id === p.id))
-              .map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.nome} ({p.unidade})
-                </option>
-              ))}
-          </select>
+        <div className="mt-3">
+          <Label>Adicionar Produto</Label>
+          <div className="flex gap-2">
+            <select
+              className="flex-1 rounded border px-3 py-2"
+              disabled={pedido.status === 'finalizado'}
+              onChange={e => {
+                const produto_id = e.target.value;
+                if (produto_id) {
+                  handleAddProduto(produto_id);
+                  e.target.value = '';
+                }
+              }}
+              defaultValue=""
+            >
+              <option value="">Selecionar produto para adicionar...</option>
+              {produtosDisponiveis
+                .filter(p => !produtosSelecionados.find(sel => sel.produto_id === p.id))
+                .map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome} ({p.unidade}) - R$ {p.preco?.toFixed(2) || '0,00'}
+                  </option>
+                ))}
+            </select>
+          </div>
         </div>
       </div>
 

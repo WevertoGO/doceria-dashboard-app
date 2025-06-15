@@ -1,4 +1,3 @@
-
 import { useState, useMemo, useEffect } from 'react';
 import { ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -142,12 +141,14 @@ export function CategorySelect({
   };
 
   const handleNewCategory = (categoriaPai?: Categoria) => {
+    console.log('Abrindo modal para nova categoria, categoria pai:', categoriaPai);
     setCategoriaPai(categoriaPai || null);
     setIsNewCategoryOpen(true);
     setOpen(false);
   };
 
   const handleCategorySuccess = () => {
+    console.log('Categoria criada com sucesso, recarregando...');
     carregarCategorias();
     if (onNewCategory) onNewCategory();
     setIsNewCategoryOpen(false);
