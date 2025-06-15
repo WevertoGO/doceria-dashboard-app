@@ -35,6 +35,22 @@ export function AlterarStatusForm({ pedido, onSuccess }: AlterarStatusFormProps)
       return;
     }
 
+    // Confirmar se quer finalizar antes da data de entrega
+    if (novoStatus === 'finalizado' && pedido.data_entrega) {
+      const hoje = new Date().toISOString().split('T')[0];
+      const dataEntrega = pedido.data_entrega;
+      
+      if (dataEntrega > hoje) {
+        const confirmar = window.confirm(
+          `A data de entrega é ${new Date(dataEntrega).toLocaleDateString('pt-BR')}, que é posterior a hoje. Tem certeza que deseja finalizar o pedido agora?`
+        );
+        
+        if (!confirmar) {
+          return;
+        }
+      }
+    }
+
     try {
       setLoading(true);
       
@@ -47,17 +63,26 @@ export function AlterarStatusForm({ pedido, onSuccess }: AlterarStatusFormProps)
 
       toast({
         title: 'Sucesso',
-        description: 'Status do pedido atualizado com sucesso!',
+        description: `Status do pedido alterado para "${statusOptions.find(s => s.value === novoStatus)?.label}"!`,
       });
       
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao alterar status:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível alterar o status do pedido.',
-        variant: 'destructive',
-      });
+      
+      if (error.message?.includes('finalizados não podem ser alterados')) {
+        toast({
+          title: 'Erro',
+          description: 'Pedidos finalizados não podem ter seu status alterado.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível alterar o status do pedido.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -82,10 +107,23 @@ export function AlterarStatusForm({ pedido, onSuccess }: AlterarStatusFormProps)
               disabled={pedido.status === 'finalizado'}
             >
               {status.label}
+              {status.value === 'finalizado' && (
+                <span className="ml-2 text-xs">(pode ser feito antes da data de entrega)</span>
+              )}
             </Button>
           ))}
         </div>
       </div>
+
+      {novoStatus === 'finalizado' && pedido.data_entrega && (
+        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+          <p className="text-sm text-yellow-800">
+            <strong>Atenção:</strong> Você está finalizando o pedido antes da data de entrega programada 
+            ({new Date(pedido.data_entrega).toLocaleDateString('pt-BR')}). 
+            Após finalizar, o pedido não poderá mais ser alterado.
+          </p>
+        </div>
+      )}
 
       <div className="flex justify-end gap-3 pt-4">
         <Button type="button" variant="outline" onClick={onSuccess} disabled={loading}>

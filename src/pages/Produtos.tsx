@@ -60,6 +60,22 @@ const Produtos = () => {
 
   const handleDeleteProduct = async (produtoId: string) => {
     try {
+      // Primeiro verificar se o produto tem pedidos vinculados
+      const { data: temPedidos, error: errorCheck } = await supabase
+        .rpc('produto_tem_pedidos', { produto_uuid: produtoId });
+
+      if (errorCheck) throw errorCheck;
+
+      if (temPedidos) {
+        toast({
+          title: 'Erro',
+          description: 'Não é possível excluir este produto pois ele está vinculado a pedidos existentes. Você pode apenas editá-lo.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Se não tem pedidos, pode fazer soft delete
       const { error } = await supabase
         .from('produtos')
         .update({ ativo: false })
@@ -198,7 +214,8 @@ const Produtos = () => {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Confirmar remoção</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Tem certeza que deseja remover o produto "{produto.nome}"? Esta ação não pode ser desfeita.
+                              Tem certeza que deseja remover o produto "{produto.nome}"? 
+                              Se este produto estiver vinculado a pedidos, ele não poderá ser removido.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>

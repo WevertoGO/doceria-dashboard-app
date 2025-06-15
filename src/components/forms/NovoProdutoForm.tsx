@@ -77,7 +77,7 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
     if (!produto.categoria_id) {
       toast({
         title: 'Erro',
-        description: 'Categoria é obrigatória',
+        description: 'Categoria é obrigatória. Por favor, selecione uma categoria ou crie uma nova.',
         variant: 'destructive',
       });
       return;
@@ -147,7 +147,7 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
         </div>
 
         <div>
-          <Label htmlFor="categoria">Categoria *</Label>
+          <Label htmlFor="categoria">Categoria * (Obrigatória)</Label>
           <div className="flex gap-2">
             <select
               id="categoria"
@@ -167,12 +167,18 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
               type="button"
               variant="outline"
               onClick={() => setIsNovaCategoriaOpen(true)}
+              className="whitespace-nowrap"
             >
-              Nova
+              Nova Categoria
             </Button>
           </div>
           {loadingCategorias && (
             <p className="text-sm text-gray-500 mt-1">Carregando categorias...</p>
+          )}
+          {!produto.categoria_id && (
+            <p className="text-sm text-red-500 mt-1">
+              * Categoria é obrigatória. Selecione uma categoria existente ou crie uma nova.
+            </p>
           )}
         </div>
 
@@ -208,7 +214,11 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
           <Button type="button" variant="outline" onClick={onSuccess} disabled={loading}>
             Cancelar
           </Button>
-          <Button type="submit" className="bg-green-500 hover:bg-green-600" disabled={loading}>
+          <Button 
+            type="submit" 
+            className="bg-green-500 hover:bg-green-600" 
+            disabled={loading || !produto.categoria_id}
+          >
             {loading ? 'Salvando...' : 'Salvar Produto'}
           </Button>
         </div>

@@ -55,7 +55,7 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
     if (formData.data_entrega < hoje) {
       toast({
         title: 'Erro',
-        description: 'Data de entrega não pode ser no passado',
+        description: 'Data de entrega não pode ser no passado. Selecione a data de hoje ou uma data futura.',
         variant: 'destructive',
       });
       return;
@@ -80,13 +80,22 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
       });
       
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao editar pedido:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o pedido.',
-        variant: 'destructive',
-      });
+      
+      if (error.message?.includes('Data de entrega não pode ser no passado')) {
+        toast({
+          title: 'Erro',
+          description: 'Data de entrega não pode ser no passado. Selecione a data de hoje ou uma data futura.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível atualizar o pedido.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -125,6 +134,14 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
           required
           disabled={pedido.status === 'finalizado'}
         />
+        <p className="text-sm text-gray-500 mt-1">
+          * A data de entrega deve ser hoje ({new Date().toLocaleDateString('pt-BR')}) ou uma data futura
+        </p>
+        {formData.data_entrega && formData.data_entrega < hoje && (
+          <p className="text-sm text-red-500 mt-1">
+            ⚠️ Data selecionada está no passado. Selecione uma data válida.
+          </p>
+        )}
       </div>
 
       <div>
@@ -145,7 +162,7 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
         </Button>
         <Button 
           type="submit" 
-          disabled={loading || pedido.status === 'finalizado'}
+          disabled={loading || pedido.status === 'finalizado' || (formData.data_entrega && formData.data_entrega < hoje)}
         >
           {loading ? 'Salvando...' : 'Salvar Alterações'}
         </Button>
