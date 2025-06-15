@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
@@ -159,9 +158,36 @@ const Categorias = () => {
     setIsEditarCategoriaOpen(true);
   };
 
-  const handleDelete = (categoria: any) => {
-    // TODO: Implementar confirmação de exclusão
-    console.log('Excluir categoria:', categoria);
+  const handleDelete = async (categoria: any) => {
+    const confirm = window.confirm(
+      `Deseja realmente excluir a categoria "${categoria.nome}"?\n\nATENÇÃO: Todas as subcategorias desse nível e inferiores serão excluídas também! Esta ação não pode ser desfeita.`
+    );
+
+    if (!confirm) return;
+
+    try {
+      const { error } = await supabase
+        .from('categorias')
+        .delete()
+        .eq('id', categoria.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Categoria excluída",
+        description: "A categoria e todas as suas subcategorias foram excluídas com sucesso.",
+        variant: "default",
+      });
+
+      carregarCategorias();
+    } catch (error) {
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir a categoria. Verifique se não há produtos vinculados.",
+        variant: "destructive",
+      });
+      console.error("Erro ao excluir categoria:", error);
+    }
   };
 
   const handleAddSubcategoria = (categoriaPai: any) => {

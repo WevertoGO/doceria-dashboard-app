@@ -15,6 +15,7 @@ export type Database = {
           descricao: string | null
           id: string
           nome: string
+          parent_id: string | null
           updated_at: string
         }
         Insert: {
@@ -22,6 +23,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome: string
+          parent_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -29,9 +31,18 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome?: string
+          parent_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categorias_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clientes: {
         Row: {
