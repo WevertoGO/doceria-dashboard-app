@@ -1,42 +1,88 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { User, Bell, Trash2 } from 'lucide-react';
+import { User, Trash2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const Configuracoes = () => {
   const [userData, setUserData] = useState({
-    nome: 'Maria Silva',
-    email: 'maria@confeitaria.com',
-    telefone: '(11) 99999-9999',
-    cpfCnpj: '123.456.789-00',
+    nome: '',
+    email: '',
+    telefone: '',
+    cpfCnpj: '',
     razaoSocial: '',
     nomeFantasia: '',
     endereco: ''
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const [notifications, setNotifications] = useState({
-    emailNovosRecursos: true,
-    smsUrgente: false,
-    whatsappConfirmacoes: true,
-    relatoriosSemanais: true
-  });
+  useEffect(() => {
+    loadUserData();
+  }, []);
 
-  const handleSaveUserData = () => {
-    console.log('Salvando dados do usuário:', userData);
-    // Implementar salvamento
+  const loadUserData = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        setUserData({
+          nome: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
+          email: user.email || '',
+          telefone: user.user_metadata?.phone || '',
+          cpfCnpj: user.user_metadata?.cpf_cnpj || '',
+          razaoSocial: user.user_metadata?.razao_social || '',
+          nomeFantasia: user.user_metadata?.nome_fantasia || '',
+          endereco: user.user_metadata?.endereco || ''
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados do usuário:', error);
+      toast.error('Erro ao carregar dados do usuário');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleNotificationChange = (key: string, checked: boolean) => {
-    setNotifications(prev => ({
-      ...prev,
-      [key]: checked
-    }));
+  const handleSaveUserData = async () => {
+    try {
+      setSaving(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error('Usuário não encontrado');
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          full_name: userData.nome,
+          phone: userData.telefone,
+          cpf_cnpj: userData.cpfCnpj,
+          razao_social: userData.razaoSocial,
+          nome_fantasia: userData.nomeFantasia,
+          endereco: userData.endereco
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success('Dados salvos com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar dados:', error);
+      toast.error('Erro ao salvar dados');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -66,110 +112,86 @@ const Configuracoes = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Informações Pessoais</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="nome">Nome completo</Label>
-                          <Input 
-                            id="nome"
-                            value={userData.nome}
-                            onChange={(e) => setUserData(prev => ({ ...prev, nome: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="email">E-mail</Label>
-                          <Input 
-                            id="email"
-                            type="email"
-                            value={userData.email}
-                            onChange={(e) => setUserData(prev => ({ ...prev, email: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="telefone">Telefone</Label>
-                          <Input 
-                            id="telefone"
-                            value={userData.telefone}
-                            onChange={(e) => setUserData(prev => ({ ...prev, telefone: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="cpfCnpj">CPF/CNPJ</Label>
-                          <Input 
-                            id="cpfCnpj"
-                            value={userData.cpfCnpj}
-                            onChange={(e) => setUserData(prev => ({ ...prev, cpfCnpj: e.target.value }))}
-                          />
+                    {loading ? (
+                      <div className="space-y-4">
+                        <div className="animate-pulse bg-gray-200 h-4 w-48 rounded"></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {Array.from({ length: 4 }).map((_, index) => (
+                            <div key={index} className="space-y-2">
+                              <div className="animate-pulse bg-gray-200 h-4 w-24 rounded"></div>
+                              <div className="animate-pulse bg-gray-200 h-10 w-full rounded"></div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="space-y-4">
+                          <h4 className="font-semibold text-gray-900">Informações Pessoais</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="nome">Nome completo</Label>
+                              <Input 
+                                id="nome"
+                                value={userData.nome}
+                                onChange={(e) => setUserData(prev => ({ ...prev, nome: e.target.value }))}
+                                disabled={saving}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="email">E-mail</Label>
+                              <Input 
+                                id="email"
+                                type="email"
+                                value={userData.email}
+                                disabled
+                                className="bg-gray-50"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="telefone">Telefone</Label>
+                              <Input 
+                                id="telefone"
+                                value={userData.telefone}
+                                onChange={(e) => setUserData(prev => ({ ...prev, telefone: e.target.value }))}
+                                disabled={saving}
+                                placeholder="(11) 99999-9999"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="cpfCnpj">CPF/CNPJ</Label>
+                              <Input 
+                                id="cpfCnpj"
+                                value={userData.cpfCnpj}
+                                onChange={(e) => setUserData(prev => ({ ...prev, cpfCnpj: e.target.value }))}
+                                disabled={saving}
+                                placeholder="000.000.000-00"
+                              />
+                            </div>
+                          </div>
+                        </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <Button onClick={handleSaveUserData} className="flex-1">
-                        Salvar Alterações
-                      </Button>
-                      <Button variant="outline" className="flex-1">
-                        Alterar Senha
-                      </Button>
-                      <Button variant="destructive" size="icon">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <Button 
+                            onClick={handleSaveUserData} 
+                            className="flex-1"
+                            disabled={saving}
+                          >
+                            {saving ? 'Salvando...' : 'Salvar Alterações'}
+                          </Button>
+                          <Button variant="outline" className="flex-1" disabled={saving}>
+                            Alterar Senha
+                          </Button>
+                          <Button variant="destructive" size="icon" disabled={saving}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
               </div>
-
-              {/* CARD 2: NOTIFICAÇÕES */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bell className="w-5 h-5" />
-                    Notificações
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="emailNovosRecursos" 
-                          checked={notifications.emailNovosRecursos}
-                          onCheckedChange={(checked) => handleNotificationChange('emailNovosRecursos', checked as boolean)}
-                        />
-                        <Label htmlFor="emailNovosRecursos">E-mail sobre novos recursos</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="smsUrgente" 
-                          checked={notifications.smsUrgente}
-                          onCheckedChange={(checked) => handleNotificationChange('smsUrgente', checked as boolean)}
-                        />
-                        <Label htmlFor="smsUrgente">SMS para pedidos urgentes</Label>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="whatsappConfirmacoes" 
-                          checked={notifications.whatsappConfirmacoes}
-                          onCheckedChange={(checked) => handleNotificationChange('whatsappConfirmacoes', checked as boolean)}
-                        />
-                        <Label htmlFor="whatsappConfirmacoes">WhatsApp para confirmações</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="relatoriosSemanais" 
-                          checked={notifications.relatoriosSemanais}
-                          onCheckedChange={(checked) => handleNotificationChange('relatoriosSemanais', checked as boolean)}
-                        />
-                        <Label htmlFor="relatoriosSemanais">Relatórios semanais por e-mail</Label>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </main>
