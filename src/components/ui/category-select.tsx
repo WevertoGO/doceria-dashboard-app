@@ -38,7 +38,6 @@ export function CategorySelect({
   const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [categoriaPai, setCategoriaPai] = useState<Categoria | null>(null);
-  const [keepCreatingSub, setKeepCreatingSub] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const normalizedValue = Array.isArray(value) ? value : [];
@@ -70,6 +69,7 @@ export function CategorySelect({
     const categoriaMap = new Map<string, Categoria>();
     const categoriasRaiz: Categoria[] = [];
 
+    // Primeiro, criar todas as categorias no mapa
     categorias.forEach(cat => {
       categoriaMap.set(cat.id, {
         ...cat,
@@ -79,6 +79,7 @@ export function CategorySelect({
       });
     });
 
+    // Depois, organizar a hierarquia
     categorias.forEach(cat => {
       const categoria = categoriaMap.get(cat.id)!;
       if (cat.parent_id) {
@@ -93,6 +94,7 @@ export function CategorySelect({
       }
     });
 
+    // Converter para lista plana para exibição
     const listaPlana: Categoria[] = [];
     const adicionarRecursivo = (cats: Categoria[]) => {
       cats.sort((a, b) => a.nome.localeCompare(b.nome));
@@ -141,7 +143,6 @@ export function CategorySelect({
 
   const handleNewCategory = (categoriaPai?: Categoria) => {
     setCategoriaPai(categoriaPai || null);
-    setKeepCreatingSub(!!categoriaPai);
     setIsNewCategoryOpen(true);
     setOpen(false);
   };
@@ -149,24 +150,17 @@ export function CategorySelect({
   const handleCategorySuccess = () => {
     carregarCategorias();
     if (onNewCategory) onNewCategory();
-    if (keepCreatingSub && categoriaPai) {
-      setIsNewCategoryOpen(true);
-    } else {
-      setIsNewCategoryOpen(false);
-      setCategoriaPai(null);
-      setKeepCreatingSub(false);
-    }
+    setIsNewCategoryOpen(false);
+    setCategoriaPai(null);
   };
 
-  const handleKeepCreatingSub = () => {
+  const handleAddAnother = () => {
     setIsNewCategoryOpen(true);
-    setKeepCreatingSub(true);
   };
 
   const handleDialogClose = () => {
     setIsNewCategoryOpen(false);
     setCategoriaPai(null);
-    setKeepCreatingSub(false);
   };
 
   return (
@@ -193,16 +187,16 @@ export function CategorySelect({
           />
         </PopoverContent>
       </Popover>
-      {/* Badges das categorias selecionadas */}
+
       <CategoryBadges selectedCategories={selectedCategories} removeCategory={removeCategory} />
-      {/* Modal para nova categoria/subcategoria */}
+
       <NewCategoryDialog
         open={isNewCategoryOpen}
         onOpenChange={setIsNewCategoryOpen}
         categoriaPai={categoriaPai}
-        keepCreatingSub={keepCreatingSub}
+        keepCreatingSub={!!categoriaPai}
         onSuccess={handleCategorySuccess}
-        onAddAnother={handleKeepCreatingSub}
+        onAddAnother={handleAddAnother}
         onClose={handleDialogClose}
       />
     </div>

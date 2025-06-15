@@ -173,6 +173,10 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
 
     try {
       setLoading(true);
+      console.log('Iniciando criação do pedido...');
+      console.log('Cliente:', cliente);
+      console.log('Produtos:', produtos);
+      console.log('Entrega:', entrega);
 
       // Criar o pedido
       const { data: pedidoData, error: pedidoError } = await supabase
@@ -187,22 +191,34 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
         .select()
         .single();
 
-      if (pedidoError) throw pedidoError;
+      if (pedidoError) {
+        console.error('Erro ao criar pedido:', pedidoError);
+        throw pedidoError;
+      }
+
+      console.log('Pedido criado:', pedidoData);
 
       // Criar os itens do pedido
       const itensPedido = produtos.map(produto => ({
         pedido_id: pedidoData.id,
         produto_id: produto.id,
-        quantidade: produto.quantidade,
+        quantidade: Math.round(produto.quantidade), // Arredondar para inteiro
         preco_unitario: produto.valor,
         subtotal: produto.valor * produto.quantidade,
       }));
+
+      console.log('Itens do pedido a serem inseridos:', itensPedido);
 
       const { error: itensError } = await supabase
         .from('pedido_produtos')
         .insert(itensPedido);
 
-      if (itensError) throw itensError;
+      if (itensError) {
+        console.error('Erro ao criar itens do pedido:', itensError);
+        throw itensError;
+      }
+
+      console.log('Itens do pedido inseridos com sucesso');
 
       toast({
         title: 'Sucesso',
