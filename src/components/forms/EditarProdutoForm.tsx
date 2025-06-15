@@ -1,9 +1,9 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { CategorySelect } from '@/components/ui/category-select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -24,12 +24,14 @@ interface Produto {
 
 export function EditarProdutoForm({ produtoId, onSuccess, onCancel }: EditarProdutoFormProps) {
   const [produto, setProduto] = useState<Produto | null>(null);
+  const [categorias, setCategorias] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     carregarProduto();
+    carregarCategorias();
   }, [produtoId]);
 
   const carregarProduto = async () => {
@@ -55,6 +57,25 @@ export function EditarProdutoForm({ produtoId, onSuccess, onCancel }: EditarProd
     }
   };
 
+  const carregarCategorias = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categorias')
+        .select('*')
+        .order('nome');
+
+      if (error) throw error;
+      setCategorias(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar categorias',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!produto) return;
@@ -67,7 +88,7 @@ export function EditarProdutoForm({ produtoId, onSuccess, onCancel }: EditarProd
           nome: produto.nome,
           descricao: produto.descricao,
           preco: produto.preco,
-          categoria_id: produto.categoria_id,
+          categoria_id: produto.categoria_id || null,
           unidade: produto.unidade,
         })
         .eq('id', produtoId);
@@ -148,13 +169,20 @@ export function EditarProdutoForm({ produtoId, onSuccess, onCancel }: EditarProd
 
         <div className="space-y-2">
           <Label htmlFor="unidade">Unidade *</Label>
-          <Input
+          <select
             id="unidade"
             value={produto.unidade}
             onChange={(e) => setProduto({ ...produto, unidade: e.target.value })}
-            placeholder="Ex: unid, kg, fatia"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             required
-          />
+          >
+            <option value="unid">Unidade</option>
+            <option value="kg">Quilograma</option>
+            <option value="g">Grama</option>
+            <option value="cento">Cento</option>
+            <option value="dz">Dúzia</option>
+            <option value="fatia">Fatia</option>
+          </select>
         </div>
       </div>
 
@@ -162,12 +190,16 @@ export function EditarProdutoForm({ produtoId, onSuccess, onCancel }: EditarProd
         <Label htmlFor="categoria">Categoria</Label>
         <select
           id="categoria"
-          value={produto.categoria_id}
+          value={produto.categoria_id || ''}
           onChange={(e) => setProduto({ ...produto, categoria_id: e.target.value })}
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <option value="">Selecione uma categoria</option>
-          {/* Categorias serão carregadas dinamicamente */}
+          {categorias.map((categoria) => (
+            <option key={categoria.id} value={categoria.id}>
+              {categoria.nome}
+            </option>
+          ))}
         </select>
       </div>
 

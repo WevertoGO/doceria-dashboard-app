@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface NovoProdutoFormProps {
   onSuccess: () => void;
@@ -15,12 +15,14 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
   const [produto, setProduto] = useState({
     nome: '',
     descricao: '',
-    valor: '',
+    preco: '',
     unidade: 'unid',
     categoria_id: ''
   });
   const [categorias, setCategorias] = useState<any[]>([]);
   const [loadingCategorias, setLoadingCategorias] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     carregarCategorias();
@@ -38,32 +40,69 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
       setCategorias(data || []);
     } catch (error) {
       console.error('Erro ao carregar categorias:', error);
-      toast.error('Erro ao carregar categorias');
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar categorias',
+        variant: 'destructive',
+      });
     } finally {
       setLoadingCategorias(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!produto.nome.trim()) {
-      toast.error('Nome do produto é obrigatório');
+      toast({
+        title: 'Erro',
+        description: 'Nome do produto é obrigatório',
+        variant: 'destructive',
+      });
       return;
     }
 
-    if (!produto.categoria_id) {
-      toast.error('Selecione uma categoria');
+    if (!produto.preco || parseFloat(produto.preco) <= 0) {
+      toast({
+        title: 'Erro',
+        description: 'Valor deve ser maior que zero',
+        variant: 'destructive',
+      });
       return;
     }
 
-    if (!produto.valor || parseFloat(produto.valor) <= 0) {
-      toast.error('Valor deve ser maior que zero');
-      return;
-    }
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase
+        .from('produtos')
+        .insert({
+          nome: produto.nome.trim(),
+          descricao: produto.descricao.trim() || null,
+          preco: parseFloat(produto.preco),
+          unidade: produto.unidade,
+          categoria_id: produto.categoria_id || null,
+          ativo: true,
+        });
 
-    toast.success('Produto adicionado com sucesso!');
-    onSuccess();
+      if (error) throw error;
+
+      toast({
+        title: 'Sucesso',
+        description: 'Produto adicionado com sucesso!',
+      });
+      
+      onSuccess();
+    } catch (error) {
+      console.error('Erro ao criar produto:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível criar o produto.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -80,13 +119,14 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
           />
         </div>
         <div>
-          <Label htmlFor="valor">Valor *</Label>
+          <Label htmlFor="preco">Preço *</Label>
           <Input
-            id="valor"
+            id="preco"
             type="number"
             step="0.01"
-            value={produto.valor}
-            onChange={(e) => setProduto({ ...produto, valor: e.target.value })}
+            min="0"
+            value={produto.preco}
+            onChange={(e) => setProduto({ ...produto, preco: e.target.value })}
             placeholder="0.00"
             required
           />
@@ -94,13 +134,12 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
       </div>
 
       <div>
-        <Label htmlFor="categoria">Categoria *</Label>
+        <Label htmlFor="categoria">Categoria</Label>
         <select
           id="categoria"
           value={produto.categoria_id}
           onChange={(e) => setProduto({ ...produto, categoria_id: e.target.value })}
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-          required
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <option value="">Selecione uma categoria...</option>
           {categorias.map((categoria) => (
@@ -131,32 +170,23 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
           id="unidade"
           value={produto.unidade}
           onChange={(e) => setProduto({ ...produto, unidade: e.target.value })}
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <option value="unid">Unidade</option>
           <option value="kg">Quilograma</option>
           <option value="g">Grama</option>
           <option value="cento">Cento</option>
           <option value="dz">Dúzia</option>
+          <option value="fatia">Fatia</option>
         </select>
       </div>
 
-      <div>
-        <Label htmlFor="imagem">Imagem do Produto</Label>
-        <Input
-          id="imagem"
-          type="file"
-          accept="image/*"
-          className="cursor-pointer"
-        />
-      </div>
-
       <div className="flex justify-end gap-3 pt-4">
-        <Button type="button" variant="outline" onClick={onSuccess}>
+        <Button type="button" variant="outline" onClick={onSuccess} disabled={loading}>
           Cancelar
         </Button>
-        <Button type="submit" className="bg-green-500 hover:bg-green-600">
-          Salvar Produto
+        <Button type="submit" className="bg-green-500 hover:bg-green-600" disabled={loading}>
+          {loading ? 'Salvando...' : 'Salvar Produto'}
         </Button>
       </div>
     </form>

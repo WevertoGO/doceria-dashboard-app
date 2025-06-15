@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
+import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface NovaCategoriaFormProps {
   categoriaPai?: any;
@@ -12,25 +14,55 @@ interface NovaCategoriaFormProps {
 
 export function NovaCategoriaForm({ categoriaPai, onSuccess }: NovaCategoriaFormProps) {
   const [nome, setNome] = useState('');
+  const [descricao, setDescricao] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const getCaminhoCompleto = () => {
     if (!categoriaPai) return nome;
-    // Aqui você construiria o caminho completo baseado na hierarquia
     return `${categoriaPai.nome} > ${nome}`;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!nome.trim()) {
-      toast.error('Nome da categoria é obrigatório');
+      toast({
+        title: 'Erro',
+        description: 'Nome da categoria é obrigatório',
+        variant: 'destructive',
+      });
       return;
     }
 
-    // TODO: Implementar validação de nomes duplicados no mesmo nível
-    
-    toast.success(`Categoria "${nome}" criada com sucesso!`);
-    onSuccess();
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase
+        .from('categorias')
+        .insert({
+          nome: nome.trim(),
+          descricao: descricao.trim() || null,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sucesso',
+        description: `Categoria "${nome}" criada com sucesso!`,
+      });
+      
+      onSuccess();
+    } catch (error) {
+      console.error('Erro ao criar categoria:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível criar a categoria.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -43,6 +75,17 @@ export function NovaCategoriaForm({ categoriaPai, onSuccess }: NovaCategoriaForm
           onChange={(e) => setNome(e.target.value)}
           placeholder="Digite o nome da categoria"
           required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="descricao">Descrição</Label>
+        <Textarea
+          id="descricao"
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder="Descrição da categoria (opcional)"
+          rows={3}
         />
       </div>
 
@@ -65,11 +108,11 @@ export function NovaCategoriaForm({ categoriaPai, onSuccess }: NovaCategoriaForm
       )}
 
       <div className="flex justify-end gap-3 pt-4">
-        <Button type="button" variant="outline" onClick={onSuccess}>
+        <Button type="button" variant="outline" onClick={onSuccess} disabled={loading}>
           Cancelar
         </Button>
-        <Button type="submit" className="bg-green-500 hover:bg-green-600">
-          Criar Categoria
+        <Button type="submit" className="bg-green-500 hover:bg-green-600" disabled={loading}>
+          {loading ? 'Criando...' : 'Criar Categoria'}
         </Button>
       </div>
     </form>

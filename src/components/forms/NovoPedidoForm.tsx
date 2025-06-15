@@ -4,13 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, CalendarIcon, Plus, Minus, Search, User } from 'lucide-react';
+import { Search, User, Plus, Minus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { NovoClienteForm } from '@/components/forms/NovoClienteForm';
 import { NovoProdutoForm } from '@/components/forms/NovoProdutoForm';
-import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface NovoPedidoFormProps {
   onSuccess: () => void;
@@ -22,15 +21,21 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
   const [buscaCliente, setBuscaCliente] = useState('');
   const [produtos, setProdutos] = useState<any[]>([]);
   const [buscaProduto, setBuscaProduto] = useState('');
-  const [entrega, setEntrega] = useState({ data: '', periodo: 'manha', observacoes: '' });
+  const [entrega, setEntrega] = useState({ 
+    data: '', 
+    periodo: 'manha', 
+    observacoes: '' 
+  });
   const [isNovoClienteOpen, setIsNovoClienteOpen] = useState(false);
   const [isNovoProdutoOpen, setIsNovoProdutoOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   // Estado para dados do banco
   const [clientesDisponiveis, setClientesDisponiveis] = useState<any[]>([]);
   const [produtosDisponiveis, setProdutosDisponiveis] = useState<any[]>([]);
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [loadingProdutos, setLoadingProdutos] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     carregarClientes();
@@ -49,7 +54,11 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
       setClientesDisponiveis(data || []);
     } catch (error) {
       console.error('Erro ao carregar clientes:', error);
-      toast.error('Erro ao carregar clientes');
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar clientes',
+        variant: 'destructive',
+      });
     } finally {
       setLoadingClientes(false);
     }
@@ -81,7 +90,11 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
       setProdutosDisponiveis(produtosFormatados);
     } catch (error) {
       console.error('Erro ao carregar produtos:', error);
-      toast.error('Erro ao carregar produtos');
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar produtos',
+        variant: 'destructive',
+      });
     } finally {
       setLoadingProdutos(false);
     }
@@ -110,11 +123,11 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
     }
   };
 
-  const removerProduto = (produtoId: number) => {
+  const removerProduto = (produtoId: string) => {
     setProdutos(produtos.filter(p => p.id !== produtoId));
   };
 
-  const atualizarQuantidade = (produtoId: number, quantidade: number) => {
+  const atualizarQuantidade = (produtoId: string, quantidade: number) => {
     if (quantidade <= 0) {
       removerProduto(produtoId);
     } else {
@@ -126,22 +139,81 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
 
   const valorTotal = produtos.reduce((total, produto) => total + (produto.valor * produto.quantidade), 0);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!cliente) {
-      toast.error('Selecione um cliente');
+      toast({
+        title: 'Erro',
+        description: 'Selecione um cliente',
+        variant: 'destructive',
+      });
       return;
     }
     if (produtos.length === 0) {
-      toast.error('Adicione pelo menos um produto');
+      toast({
+        title: 'Erro',
+        description: 'Adicione pelo menos um produto',
+        variant: 'destructive',
+      });
       return;
     }
     if (!entrega.data) {
-      toast.error('Selecione a data de entrega');
+      toast({
+        title: 'Erro',
+        description: 'Selecione a data de entrega',
+        variant: 'destructive',
+      });
       return;
     }
 
-    toast.success('Pedido criado com sucesso!');
-    onSuccess();
+    try {
+      setLoading(true);
+
+      // Criar o pedido
+      const { data: pedidoData, error: pedidoError } = await supabase
+        .from('pedidos')
+        .insert({
+          cliente_id: cliente.id,
+          data_entrega: entrega.data,
+          valor_total: valorTotal,
+          observacoes: entrega.observacoes.trim() || null,
+          status: 'recebido',
+        })
+        .select()
+        .single();
+
+      if (pedidoError) throw pedidoError;
+
+      // Criar os itens do pedido
+      const itensPedido = produtos.map(produto => ({
+        pedido_id: pedidoData.id,
+        produto_id: produto.id,
+        quantidade: produto.quantidade,
+        preco_unitario: produto.valor,
+        subtotal: produto.valor * produto.quantidade,
+      }));
+
+      const { error: itensError } = await supabase
+        .from('pedido_produtos')
+        .insert(itensPedido);
+
+      if (itensError) throw itensError;
+
+      toast({
+        title: 'Sucesso',
+        description: 'Pedido criado com sucesso!',
+      });
+      
+      onSuccess();
+    } catch (error) {
+      console.error('Erro ao criar pedido:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível criar o pedido.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -405,7 +477,7 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
             <div>
               <h4 className="font-semibold mb-2">Entrega</h4>
               <div className="p-3 bg-gray-50 rounded-lg">
-                <p><strong>Data:</strong> {new Date(entrega.data).toLocaleDateString()}</p>
+                <p><strong>Data:</strong> {new Date(entrega.data).toLocaleDateString('pt-BR')}</p>
                 <p><strong>Período:</strong> {entrega.periodo}</p>
                 {entrega.observacoes && (
                   <p><strong>Observações:</strong> {entrega.observacoes}</p>
@@ -425,8 +497,12 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
             <Button variant="outline" onClick={() => setStep('entrega')}>
               Voltar
             </Button>
-            <Button onClick={handleSubmit} className="bg-rose-500 hover:bg-rose-600">
-              Confirmar Pedido
+            <Button 
+              onClick={handleSubmit} 
+              className="bg-rose-500 hover:bg-rose-600"
+              disabled={loading}
+            >
+              {loading ? 'Criando Pedido...' : 'Confirmar Pedido'}
             </Button>
           </div>
         </TabsContent>
@@ -440,7 +516,7 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
           </DialogHeader>
           <NovoClienteForm onSuccess={() => {
             setIsNovoClienteOpen(false);
-            // TODO: Após cadastrar, selecionar o cliente automaticamente
+            carregarClientes();
           }} />
         </DialogContent>
       </Dialog>
@@ -452,7 +528,7 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
           </DialogHeader>
           <NovoProdutoForm onSuccess={() => {
             setIsNovoProdutoOpen(false);
-            // TODO: Após cadastrar, adicionar o produto ao carrinho
+            carregarProdutos();
           }} />
         </DialogContent>
       </Dialog>

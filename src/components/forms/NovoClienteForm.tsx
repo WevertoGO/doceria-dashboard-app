@@ -3,8 +3,10 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Plus, Minus } from 'lucide-react';
-import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface NovoClienteFormProps {
   onSuccess: () => void;
@@ -13,6 +15,11 @@ interface NovoClienteFormProps {
 export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
   const [nome, setNome] = useState('');
   const [telefones, setTelefones] = useState(['']);
+  const [email, setEmail] = useState('');
+  const [endereco, setEndereco] = useState('');
+  const [observacoes, setObservacoes] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const adicionarTelefone = () => {
     setTelefones([...telefones, '']);
@@ -51,34 +58,79 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
     return regexTelefone.test(telefone);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!nome.trim()) {
-      toast.error('Nome é obrigatório');
+      toast({
+        title: 'Erro',
+        description: 'Nome é obrigatório',
+        variant: 'destructive',
+      });
       return;
     }
 
     if (!telefones[0].trim()) {
-      toast.error('Pelo menos um telefone é obrigatório');
+      toast({
+        title: 'Erro',
+        description: 'Pelo menos um telefone é obrigatório',
+        variant: 'destructive',
+      });
       return;
     }
 
     if (!validarTelefone(telefones[0])) {
-      toast.error('Formato de telefone inválido. Use: (11) 99999-9999');
+      toast({
+        title: 'Erro',
+        description: 'Formato de telefone inválido. Use: (11) 99999-9999',
+        variant: 'destructive',
+      });
       return;
     }
 
     // Validar telefones adicionais se preenchidos
     for (let i = 1; i < telefones.length; i++) {
       if (telefones[i].trim() && !validarTelefone(telefones[i])) {
-        toast.error(`Telefone ${i + 1} com formato inválido. Use: (11) 99999-9999`);
+        toast({
+          title: 'Erro',
+          description: `Telefone ${i + 1} com formato inválido. Use: (11) 99999-9999`,
+          variant: 'destructive',
+        });
         return;
       }
     }
 
-    toast.success('Cliente cadastrado com sucesso!');
-    onSuccess();
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase
+        .from('clientes')
+        .insert({
+          nome: nome.trim(),
+          telefone: telefones[0].trim(),
+          email: email.trim() || null,
+          endereco: endereco.trim() || null,
+          observacoes: observacoes.trim() || null,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sucesso',
+        description: 'Cliente cadastrado com sucesso!',
+      });
+      
+      onSuccess();
+    } catch (error) {
+      console.error('Erro ao cadastrar cliente:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível cadastrar o cliente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -127,12 +179,44 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
         ))}
       </div>
 
+      <div>
+        <Label htmlFor="email">E-mail</Label>
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="cliente@email.com"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="endereco">Endereço</Label>
+        <Input
+          id="endereco"
+          value={endereco}
+          onChange={(e) => setEndereco(e.target.value)}
+          placeholder="Endereço completo"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="observacoes">Observações</Label>
+        <Textarea
+          id="observacoes"
+          value={observacoes}
+          onChange={(e) => setObservacoes(e.target.value)}
+          placeholder="Observações sobre o cliente..."
+          rows={3}
+        />
+      </div>
+
       <div className="flex justify-end gap-3 pt-4">
-        <Button type="button" variant="outline" onClick={onSuccess}>
+        <Button type="button" variant="outline" onClick={onSuccess} disabled={loading}>
           Cancelar
         </Button>
-        <Button type="submit" className="bg-blue-500 hover:bg-blue-600">
-          Salvar Cliente
+        <Button type="submit" className="bg-blue-500 hover:bg-blue-600" disabled={loading}>
+          {loading ? 'Salvando...' : 'Salvar Cliente'}
         </Button>
       </div>
     </form>
