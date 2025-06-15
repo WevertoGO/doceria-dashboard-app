@@ -1,21 +1,23 @@
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, TrendingUp, Users, DollarSign, Package } from 'lucide-react';
 import { PeriodFilter } from '@/components/dashboard/PeriodFilter';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ReportPeriodForm } from '@/components/forms/ReportPeriodForm';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { RelatoriosHeader } from '@/components/relatorios/RelatoriosHeader';
+import { RelatoriosSummaryCard } from '@/components/relatorios/RelatoriosSummaryCard';
+import { RelatoriosTopProdutos } from '@/components/relatorios/RelatoriosTopProdutos';
+import { RelatoriosTopClientes } from '@/components/relatorios/RelatoriosTopClientes';
+import { ReportDialog } from '@/components/relatorios/ReportDialog';
+import { FileText } from 'lucide-react';
 
 const periodLabels: Record<string, string> = {
-  "today": "de Hoje",
-  "week": "da Semana",
-  "month": "do Mês",
-  "semester": "do Semestre",
-  "year": "do Ano",
-  "all": "de Todo Período"
+  today: 'de Hoje',
+  week: 'da Semana',
+  month: 'do Mês',
+  semester: 'do Semestre',
+  year: 'do Ano',
+  all: 'de Todo Período'
 };
 
 const Relatorios = () => {
@@ -220,17 +222,11 @@ const Relatorios = () => {
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-bakery-soft">
         <AppSidebar />
-        
         <main className="flex-1 p-6 overflow-auto">
           <div className="max-w-7xl mx-auto">
-            {/* Header */}
             <div className="flex items-center gap-4 mb-8">
-              <SidebarTrigger className="lg:hidden" />
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900">Relatórios</h1>
-                <p className="text-gray-600 mt-1">Análises e relatórios do desempenho da confeitaria</p>
-              </div>
-              <Button 
+              <RelatoriosHeader />
+              <Button
                 className="bg-confeitaria-primary hover:bg-confeitaria-primary/90"
                 onClick={() => setOpenReportDialog(true)}
               >
@@ -238,184 +234,55 @@ const Relatorios = () => {
                 Gerar Relatório
               </Button>
             </div>
-
-            {/* Period Filter */}
             <div className="mb-8">
               <PeriodFilter onPeriodChange={setSelectedPeriod} />
             </div>
-
-            {/* Cards de Relatórios */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{`Vendas ${periodLabels[selectedPeriod]}`}</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? (
-                      <div className="animate-pulse bg-gray-200 h-8 w-24 rounded"></div>
-                    ) : (
-                      `R$ ${reportData.vendas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {loading ? (
-                      <div className="animate-pulse bg-gray-200 h-4 w-32 rounded"></div>
-                    ) : (
-                      `${((reportData.vendas - reportData.vendasPeriodoAnterior) / (reportData.vendasPeriodoAnterior || 1) * 100).toFixed(1)}% em relação ao período anterior`
-                    )}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Novos Clientes</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? (
-                      <div className="animate-pulse bg-gray-200 h-8 w-16 rounded"></div>
-                    ) : (
-                      reportData.novosClientes
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {loading ? (
-                      <div className="animate-pulse bg-gray-200 h-4 w-32 rounded"></div>
-                    ) : (
-                      `${((reportData.novosClientes - reportData.clientesPeriodoAnterior) / (reportData.clientesPeriodoAnterior || 1) * 100).toFixed(1)}% em relação ao período anterior`
-                    )}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Ticket Médio</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? (
-                      <div className="animate-pulse bg-gray-200 h-8 w-20 rounded"></div>
-                    ) : (
-                      `R$ ${reportData.ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {loading ? (
-                      <div className="animate-pulse bg-gray-200 h-4 w-32 rounded"></div>
-                    ) : (
-                      'Ticket médio do período'
-                    )}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Produtos Vendidos</CardTitle>
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? (
-                      <div className="animate-pulse bg-gray-200 h-8 w-16 rounded"></div>
-                    ) : (
-                      reportData.produtosVendidos
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {loading ? (
-                      <div className="animate-pulse bg-gray-200 h-4 w-32 rounded"></div>
-                    ) : (
-                      'Produtos vendidos no período'
-                    )}
-                  </p>
-                </CardContent>
-              </Card>
+              <RelatoriosSummaryCard
+                type="vendas"
+                title={`Vendas ${periodLabels[selectedPeriod]}`}
+                value={`R$ ${reportData.vendas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                description={`${((reportData.vendas - reportData.vendasPeriodoAnterior) / (reportData.vendasPeriodoAnterior || 1) * 100).toFixed(1)}% em relação ao período anterior`}
+                loading={loading}
+              />
+              <RelatoriosSummaryCard
+                type="clientes"
+                title="Novos Clientes"
+                value={reportData.novosClientes}
+                description={`${((reportData.novosClientes - reportData.clientesPeriodoAnterior) / (reportData.clientesPeriodoAnterior || 1) * 100).toFixed(1)}% em relação ao período anterior`}
+                loading={loading}
+              />
+              <RelatoriosSummaryCard
+                type="ticket"
+                title="Ticket Médio"
+                value={`R$ ${reportData.ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                description="Ticket médio do período"
+                loading={loading}
+              />
+              <RelatoriosSummaryCard
+                type="produtos"
+                title="Produtos Vendidos"
+                value={reportData.produtosVendidos}
+                description="Produtos vendidos no período"
+                loading={loading}
+              />
             </div>
-
-            {/* Seções de Relatórios */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="section-card">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  {`Top 5 Produtos Mais Vendidos ${periodLabels[selectedPeriod]}`}
-                </h3>
-                <div className="space-y-3">
-                  {loading ? (
-                    Array.from({ length: 5 }).map((_, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="space-y-2">
-                          <div className="animate-pulse bg-gray-200 h-4 w-32 rounded"></div>
-                          <div className="animate-pulse bg-gray-200 h-3 w-24 rounded"></div>
-                        </div>
-                        <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
-                      </div>
-                    ))
-                  ) : reportData.topProdutos.length > 0 ? (
-                    reportData.topProdutos.map((produto: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <h4 className="font-medium text-gray-900">{produto.nome}</h4>
-                          <p className="text-sm text-gray-600">{produto.vendas} unidades vendidas</p>
-                        </div>
-                        <span className="font-semibold text-green-600">R$ {produto.receita.toFixed(2)}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">Nenhum produto vendido no período</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="section-card">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  {`Clientes Top ${periodLabels[selectedPeriod]}`}
-                </h3>
-                <div className="space-y-3">
-                  {loading ? (
-                    Array.from({ length: 5 }).map((_, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="space-y-2">
-                          <div className="animate-pulse bg-gray-200 h-4 w-32 rounded"></div>
-                          <div className="animate-pulse bg-gray-200 h-3 w-24 rounded"></div>
-                        </div>
-                        <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
-                      </div>
-                    ))
-                  ) : reportData.topClientes.length > 0 ? (
-                    reportData.topClientes.map((cliente: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <h4 className="font-medium text-gray-900">{cliente.nome}</h4>
-                          <p className="text-sm text-gray-600">{cliente.pedidos} pedidos</p>
-                        </div>
-                        <span className="font-semibold text-green-600">R$ {cliente.valor.toFixed(2)}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">Nenhum cliente no período</p>
-                  )}
-                </div>
-              </div>
+              <RelatoriosTopProdutos
+                loading={loading}
+                topProdutos={reportData.topProdutos}
+                periodLabel={periodLabels[selectedPeriod]}
+              />
+              <RelatoriosTopClientes
+                loading={loading}
+                topClientes={reportData.topClientes}
+                periodLabel={periodLabels[selectedPeriod]}
+              />
             </div>
           </div>
         </main>
       </div>
-
-      {/* Dialog para gerar relatório */}
-      <Dialog open={openReportDialog} onOpenChange={setOpenReportDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Gerar Relatório</DialogTitle>
-          </DialogHeader>
-          <ReportPeriodForm onSuccess={() => setOpenReportDialog(false)} />
-        </DialogContent>
-      </Dialog>
+      <ReportDialog open={openReportDialog} onOpenChange={setOpenReportDialog} />
     </SidebarProvider>
   );
 };
