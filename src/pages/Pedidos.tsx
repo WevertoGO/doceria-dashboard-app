@@ -1,5 +1,6 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Button } from '@/components/ui/button';
@@ -31,12 +32,14 @@ const statusLabels = {
 };
 
 const Pedidos = () => {
+  const [searchParams] = useSearchParams();
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [isEditOrderOpen, setIsEditOrderOpen] = useState(false);
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [pedidoSelecionado, setPedidoSelecionado] = useState<any>(null);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [metricas, setMetricas] = useState({
     recebidos: 0,
     producao: 0,
@@ -46,47 +49,29 @@ const Pedidos = () => {
   });
   const { toast } = useToast();
 
-  useEffect(() => {
-    carregarPedidos();
-    carregarMetricas();
-  }, []);
+  // Filtros da URL
+  const statusFilter = searchParams.get('status');
+  const entregaFilter = searchParams.get('entrega');
 
-  const carregarPedidos = async () => {
+  useEffect(() => {
+    carregarDados();
+  }, [statusFilter, entregaFilter]);
+
+  const carregarDados = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('pedidos')
-        .select(`
-          *,
-          clientes (
-            nome
-          ),
-          pedido_produtos (
-            quantidade,
-            produtos (
-              nome
-            )
-          )
-        `)
-        .order('data_pedido', { ascending: false });
-
-      if (error) throw error;
-
-      // Formatear los datos para mostrar los productos
-      const pedidosFormatados = (data || []).map(pedido => ({
-        ...pedido,
-        cliente: pedido.clientes?.nome || 'Cliente não encontrado',
-        produtos: pedido.pedido_produtos
-          ?.map((pp: any) => `${pp.produtos?.nome} (${pp.quantidade}un)`)
-          .join(', ') || 'Sem produtos',
-      }));
-
-      setPedidos(pedidosFormatados);
+      
+      // Executar consultas em paralelo
+      const [pedidosResult, metricasResult] = await Promise.all([
+        carregarPedidos(),
+        carregarMetricas()
+      ]);
+      
     } catch (error) {
-      console.error('Erro ao carregar pedidos:', error);
+      console.error('Erro ao carregar dados:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível carregar os pedidos.',
+        description: 'Não foi possível carregar os dados.',
         variant: 'destructive',
       });
     } finally {
@@ -94,30 +79,76 @@ const Pedidos = () => {
     }
   };
 
-  const carregarMetricas = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('pedidos')
-        .select('status');
+  const carregarPedidos = async () => {
+    let query = supabase
+      .from('pedidos')
+      .select(`
+        *,
+        clientes!inner (
+          nome
+        ),
+        pedido_produtos (
+          quantidade,
+          produtos (
+            nome
+          )
+        )
+      `)
+      .order('data_pedido', { ascending: false });
 
-      if (error) throw error;
-
-      const contadores = (data || []).reduce((acc, pedido) => {
-        acc[pedido.status] = (acc[pedido.status] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      setMetricas({
-        recebidos: contadores.recebido || 0,
-        producao: contadores.producao || 0,
-        prontos: contadores.pronto || 0,
-        retirados: contadores.retirado || 0,
-        finalizados: contadores.finalizado || 0,
-      });
-    } catch (error) {
-      console.error('Erro ao carregar métricas:', error);
+    // Aplicar filtros se especificados na URL
+    if (statusFilter) {
+      query = query.eq('status', statusFilter);
     }
+    if (entregaFilter) {
+      query = query.eq('data_entrega', entregaFilter);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    // Formatear os dados para mostrar os produtos
+    const pedidosFormatados = (data || []).map(pedido => ({
+      ...pedido,
+      cliente: pedido.clientes?.nome || 'Cliente não encontrado',
+      produtos: pedido.pedido_produtos
+        ?.map((pp: any) => `${pp.produtos?.nome} (${pp.quantidade}un)`)
+        .join(', ') || 'Sem produtos',
+    }));
+
+    setPedidos(pedidosFormatados);
+    return pedidosFormatados;
   };
+
+  const carregarMetricas = async () => {
+    // Usar count em vez de buscar todos os dados
+    const [recebidos, producao, prontos, retirados, finalizados] = await Promise.all([
+      supabase.from('pedidos').select('*', { count: 'exact', head: true }).eq('status', 'recebido'),
+      supabase.from('pedidos').select('*', { count: 'exact', head: true }).eq('status', 'producao'),
+      supabase.from('pedidos').select('*', { count: 'exact', head: true }).eq('status', 'pronto'),
+      supabase.from('pedidos').select('*', { count: 'exact', head: true }).eq('status', 'retirado'),
+      supabase.from('pedidos').select('*', { count: 'exact', head: true }).eq('status', 'finalizado')
+    ]);
+
+    setMetricas({
+      recebidos: recebidos.count || 0,
+      producao: producao.count || 0,
+      prontos: prontos.count || 0,
+      retirados: retirados.count || 0,
+      finalizados: finalizados.count || 0,
+    });
+  };
+
+  // Filtrar pedidos localmente baseado na busca
+  const pedidosFiltrados = useMemo(() => {
+    if (!searchTerm) return pedidos;
+    
+    return pedidos.filter(pedido =>
+      pedido.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      pedido.produtos.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [pedidos, searchTerm]);
 
   const excluirPedido = async (pedidoId: string) => {
     try {
@@ -133,8 +164,7 @@ const Pedidos = () => {
         description: 'Pedido excluído com sucesso!',
       });
       
-      carregarPedidos();
-      carregarMetricas();
+      carregarDados();
     } catch (error: any) {
       console.error('Erro ao excluir pedido:', error);
       toast({
@@ -160,8 +190,7 @@ const Pedidos = () => {
     setIsEditOrderOpen(false);
     setIsStatusOpen(false);
     setPedidoSelecionado(null);
-    carregarPedidos();
-    carregarMetricas();
+    carregarDados();
   };
 
   return (
@@ -197,23 +226,23 @@ const Pedidos = () => {
             {/* Métricas */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
               <div className="metric-card text-center">
-                <h3 className="text-2xl font-bold text-blue-600">{metricas.recebidos}</h3>
+                <h3 className="text-2xl font-bold text-blue-600">{loading ? '...' : metricas.recebidos}</h3>
                 <p className="text-sm text-gray-600">Recebidos</p>
               </div>
               <div className="metric-card text-center">
-                <h3 className="text-2xl font-bold text-yellow-600">{metricas.producao}</h3>
+                <h3 className="text-2xl font-bold text-yellow-600">{loading ? '...' : metricas.producao}</h3>
                 <p className="text-sm text-gray-600">Em Produção</p>
               </div>
               <div className="metric-card text-center">
-                <h3 className="text-2xl font-bold text-green-600">{metricas.prontos}</h3>
+                <h3 className="text-2xl font-bold text-green-600">{loading ? '...' : metricas.prontos}</h3>
                 <p className="text-sm text-gray-600">Prontos</p>
               </div>
               <div className="metric-card text-center">
-                <h3 className="text-2xl font-bold text-gray-600">{metricas.retirados}</h3>
+                <h3 className="text-2xl font-bold text-gray-600">{loading ? '...' : metricas.retirados}</h3>
                 <p className="text-sm text-gray-600">Retirados</p>
               </div>
               <div className="metric-card text-center">
-                <h3 className="text-2xl font-bold text-purple-600">{metricas.finalizados}</h3>
+                <h3 className="text-2xl font-bold text-purple-600">{loading ? '...' : metricas.finalizados}</h3>
                 <p className="text-sm text-gray-600">Finalizados</p>
               </div>
             </div>
@@ -227,6 +256,8 @@ const Pedidos = () => {
                     <Input
                       placeholder="Buscar por cliente ou produto..."
                       className="pl-10"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                 </div>
@@ -248,12 +279,12 @@ const Pedidos = () => {
                       <div className="h-3 bg-gray-200 rounded"></div>
                     </div>
                   ))
-                ) : pedidos.length === 0 ? (
+                ) : pedidosFiltrados.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-gray-500">Nenhum pedido encontrado</p>
                   </div>
                 ) : (
-                  pedidos.map((pedido) => (
+                  pedidosFiltrados.map((pedido) => (
                     <div key={pedido.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                       <div className="flex-1">
                         <div className="flex items-center gap-4 mb-2">

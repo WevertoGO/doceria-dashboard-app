@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, UserPlus, Package, FileText, Clock, BarChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,9 +11,11 @@ import { NovoProdutoForm } from '@/components/forms/NovoProdutoForm';
 import { Badge } from '@/components/ui/badge';
 
 export function QuickActions() {
+  const navigate = useNavigate();
   const [openDialog, setOpenDialog] = useState<string | null>(null);
   const [pedidosPendentes, setPedidosPendentes] = useState(0);
   const [entregasHoje, setEntregasHoje] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     carregarDados();
@@ -20,25 +23,28 @@ export function QuickActions() {
 
   const carregarDados = async () => {
     try {
-      // Pedidos pendentes (em produção)
-      const { data: pendentes } = await supabase
-        .from('pedidos')
-        .select('id')
-        .eq('status', 'producao');
-
-      setPedidosPendentes(pendentes?.length || 0);
-
-      // Entregas hoje
+      setLoading(true);
       const hoje = new Date().toISOString().split('T')[0];
-      const { data: entregasHojeData } = await supabase
-        .from('pedidos')
-        .select('id')
-        .eq('data_entrega', hoje)
-        .neq('status', 'retirado');
 
-      setEntregasHoje(entregasHojeData?.length || 0);
+      // Executar ambas as consultas em paralelo para melhor performance
+      const [pedidosPendentesResult, entregasHojeResult] = await Promise.all([
+        supabase
+          .from('pedidos')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'producao'),
+        supabase
+          .from('pedidos')
+          .select('id', { count: 'exact', head: true })
+          .eq('data_entrega', hoje)
+          .neq('status', 'retirado')
+      ]);
+
+      setPedidosPendentes(pedidosPendentesResult.count || 0);
+      setEntregasHoje(entregasHojeResult.count || 0);
     } catch (error) {
       console.error('Erro ao carregar dados das ações rápidas:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -73,7 +79,7 @@ export function QuickActions() {
       icon: Clock,
       color: 'bg-orange-500 hover:bg-orange-600',
       dialog: null,
-      badge: pedidosPendentes.toString(),
+      badge: loading ? '...' : pedidosPendentes.toString(),
     },
     {
       title: 'Entregas Hoje',
@@ -81,7 +87,7 @@ export function QuickActions() {
       icon: FileText,
       color: 'bg-purple-500 hover:bg-purple-600',
       dialog: null,
-      badge: entregasHoje.toString(),
+      badge: loading ? '...' : entregasHoje.toString(),
     },
     {
       title: 'Relatórios',
@@ -97,14 +103,12 @@ export function QuickActions() {
     if (action.dialog) {
       setOpenDialog(action.dialog);
     } else if (action.title === 'Relatórios') {
-      window.location.href = '/relatorios';
+      navigate('/relatorios');
     } else if (action.title === 'Pedidos Pendentes') {
-      window.location.href = '/pedidos?status=producao';
+      navigate('/pedidos?status=producao');
     } else if (action.title === 'Entregas Hoje') {
       const hoje = new Date().toISOString().split('T')[0];
-      window.location.href = `/pedidos?entrega=${hoje}`;
-    } else {
-      console.log(`Executando ação: ${action.title}`);
+      navigate(`/pedidos?entrega=${hoje}`);
     }
   };
 
