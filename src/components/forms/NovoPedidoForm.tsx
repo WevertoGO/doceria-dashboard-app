@@ -1,15 +1,19 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, User, Plus, Minus } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Search, User, Plus, Minus, CalendarIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { NovoClienteForm } from '@/components/forms/NovoClienteForm';
 import { NovoProdutoForm } from '@/components/forms/NovoProdutoForm';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface NovoPedidoFormProps {
   onSuccess: () => void;
@@ -22,13 +26,14 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
   const [produtos, setProdutos] = useState<any[]>([]);
   const [buscaProduto, setBuscaProduto] = useState('');
   const [entrega, setEntrega] = useState({ 
-    data: '', 
+    data: null as Date | null, 
     periodo: 'manha', 
     observacoes: '' 
   });
   const [isNovoClienteOpen, setIsNovoClienteOpen] = useState(false);
   const [isNovoProdutoOpen, setIsNovoProdutoOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   // Estado para dados do banco
   const [clientesDisponiveis, setClientesDisponiveis] = useState<any[]>([]);
@@ -127,12 +132,13 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
     setProdutos(produtos.filter(p => p.id !== produtoId));
   };
 
-  const atualizarQuantidade = (produtoId: string, quantidade: number) => {
-    if (quantidade <= 0) {
+  const atualizarQuantidade = (produtoId: string, quantidade: number | string) => {
+    const qtd = typeof quantidade === 'string' ? parseFloat(quantidade) || 0 : quantidade;
+    if (qtd <= 0) {
       removerProduto(produtoId);
     } else {
       setProdutos(produtos.map(p => 
-        p.id === produtoId ? { ...p, quantidade } : p
+        p.id === produtoId ? { ...p, quantidade: qtd } : p
       ));
     }
   };
@@ -173,7 +179,7 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
         .from('pedidos')
         .insert({
           cliente_id: cliente.id,
-          data_entrega: entrega.data,
+          data_entrega: format(entrega.data, 'yyyy-MM-dd'),
           valor_total: valorTotal,
           observacoes: entrega.observacoes.trim() || null,
           status: 'recebido',
@@ -310,7 +316,7 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
             </div>
           </div>
 
-          {/* Carrinho lateral */}
+          {/* Carrinho lateral com quantidades editáveis */}
           {produtos.length > 0 && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 className="font-medium text-blue-900 mb-3">Produtos Selecionados</h4>
@@ -325,15 +331,22 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => atualizarQuantidade(produto.id, produto.quantidade - 1)}
+                        onClick={() => atualizarQuantidade(produto.id, produto.quantidade - 0.5)}
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="w-8 text-center text-sm">{produto.quantidade}</span>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={produto.quantidade}
+                        onChange={(e) => atualizarQuantidade(produto.id, e.target.value)}
+                        className="w-20 text-center text-sm h-8"
+                      />
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => atualizarQuantidade(produto.id, produto.quantidade + 1)}
+                        onClick={() => atualizarQuantidade(produto.id, produto.quantidade + 0.5)}
                       >
                         <Plus className="h-3 w-3" />
                       </Button>
@@ -399,13 +412,34 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
         <TabsContent value="entrega" className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="data">Data da Entrega</Label>
-              <Input
-                id="data"
-                type="date"
-                value={entrega.data}
-                onChange={(e) => setEntrega({ ...entrega, data: e.target.value })}
-              />
+              <Label>Data da Entrega</Label>
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !entrega.data && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {entrega.data ? format(entrega.data, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={entrega.data}
+                    onSelect={(date) => {
+                      setEntrega({ ...entrega, data: date });
+                      setIsCalendarOpen(false);
+                    }}
+                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>Período</Label>
@@ -477,7 +511,7 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
             <div>
               <h4 className="font-semibold mb-2">Entrega</h4>
               <div className="p-3 bg-gray-50 rounded-lg">
-                <p><strong>Data:</strong> {new Date(entrega.data).toLocaleDateString('pt-BR')}</p>
+                <p><strong>Data:</strong> {entrega.data ? format(entrega.data, "dd/MM/yyyy", { locale: ptBR }) : 'Não selecionada'}</p>
                 <p><strong>Período:</strong> {entrega.periodo}</p>
                 {entrega.observacoes && (
                   <p><strong>Observações:</strong> {entrega.observacoes}</p>

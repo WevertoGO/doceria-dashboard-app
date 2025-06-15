@@ -1,23 +1,14 @@
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { NovaCategoriaForm } from '@/components/forms/NovaCategoriaForm';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-
-// Mock data das categorias (mesmo do arquivo anterior)
-const categorias = [
-  { id: 1, nome: 'Bolos', caminho: 'Bolos', nivel: 0 },
-  { id: 2, nome: 'Tradicionais', caminho: 'Bolos > Tradicionais', nivel: 1 },
-  { id: 3, nome: 'Chocolate', caminho: 'Bolos > Tradicionais > Chocolate', nivel: 2 },
-  { id: 4, nome: 'Baunilha', caminho: 'Bolos > Tradicionais > Baunilha', nivel: 2 },
-  { id: 5, nome: 'Especiais', caminho: 'Bolos > Especiais', nivel: 1 },
-  { id: 6, nome: 'Docinhos', caminho: 'Docinhos', nivel: 0 },
-  { id: 7, nome: 'Brigadeiros', caminho: 'Docinhos > Brigadeiros', nivel: 1 },
-  { id: 8, nome: 'Beijinhos', caminho: 'Docinhos > Beijinhos', nivel: 1 },
-];
 
 interface CategorySelectProps {
   value?: number[];
@@ -35,13 +26,67 @@ export function CategorySelect({
   onNewCategory 
 }: CategorySelectProps) {
   const [open, setOpen] = useState(false);
+  const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
+  const [categorias, setCategorias] = useState<any[]>([]);
+  const [categoriaPai, setCategoriaPai] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   // Ensure value is always an array and handle undefined/null cases
   const normalizedValue = Array.isArray(value) ? value : [];
+
+  useEffect(() => {
+    carregarCategorias();
+  }, []);
+
+  const carregarCategorias = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('categorias')
+        .select('*')
+        .order('nome');
+
+      if (error) throw error;
+
+      // Organizar categorias hierarquicamente
+      const categoriasOrganizadas = organizarCategorias(data || []);
+      setCategorias(categoriasOrganizadas);
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const organizarCategorias = (categorias: any[]) => {
+    const categoriasComNivel = categorias.map(categoria => {
+      const nivel = calcularNivel(categoria, categorias);
+      const caminho = construirCaminho(categoria, categorias);
+      return {
+        ...categoria,
+        nivel,
+        caminho
+      };
+    });
+
+    return categoriasComNivel.sort((a, b) => a.caminho.localeCompare(b.caminho));
+  };
+
+  const calcularNivel = (categoria: any, categorias: any[], nivel = 0): number => {
+    if (!categoria.parent_id) return nivel;
+    const pai = categorias.find(c => c.id === categoria.parent_id);
+    return pai ? calcularNivel(pai, categorias, nivel + 1) : nivel;
+  };
+
+  const construirCaminho = (categoria: any, categorias: any[]): string => {
+    if (!categoria.parent_id) return categoria.nome;
+    const pai = categorias.find(c => c.id === categoria.parent_id);
+    return pai ? `${construirCaminho(pai, categorias)} > ${categoria.nome}` : categoria.nome;
+  };
   
   const selectedCategories = useMemo(() => 
     categorias.filter(cat => normalizedValue.includes(cat.id)), 
-    [normalizedValue]
+    [normalizedValue, categorias]
   );
 
   const handleSelect = (categoriaId: number) => {
@@ -58,6 +103,21 @@ export function CategorySelect({
 
   const removeCategory = (categoriaId: number) => {
     onChange(normalizedValue.filter(id => id !== categoriaId));
+  };
+
+  const handleNewCategory = (categoriaPai?: any) => {
+    setCategoriaPai(categoriaPai || null);
+    setIsNewCategoryOpen(true);
+    setOpen(false);
+  };
+
+  const handleCategorySuccess = () => {
+    setIsNewCategoryOpen(false);
+    setCategoriaPai(null);
+    carregarCategorias();
+    if (onNewCategory) {
+      onNewCategory();
+    }
   };
 
   return (
@@ -80,39 +140,49 @@ export function CategorySelect({
             <CommandList>
               <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
               <CommandGroup>
-                {onNewCategory && (
-                  <CommandItem 
-                    key="new-category"
-                    onSelect={() => {
-                      onNewCategory();
-                      setOpen(false);
-                    }}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nova Categoria
-                  </CommandItem>
-                )}
-                {categorias.map((categoria) => (
-                  <CommandItem
-                    key={categoria.id}
-                    value={categoria.nome}
-                    onSelect={() => handleSelect(categoria.id)}
-                    className={cn("cursor-pointer", {
-                      "pl-4": categoria.nivel === 1,
-                      "pl-8": categoria.nivel === 2,
-                    })}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        normalizedValue.includes(categoria.id) ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <div>
-                      <div className="font-medium">{categoria.nome}</div>
-                      <div className="text-xs text-gray-500">{categoria.caminho}</div>
-                    </div>
-                  </CommandItem>
+                <CommandItem 
+                  key="new-category"
+                  onSelect={() => handleNewCategory()}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova Categoria Principal
+                </CommandItem>
+                {!loading && categorias.map((categoria) => (
+                  <div key={categoria.id}>
+                    <CommandItem
+                      value={categoria.nome}
+                      onSelect={() => handleSelect(categoria.id)}
+                      className={cn("cursor-pointer", {
+                        "pl-4": categoria.nivel === 1,
+                        "pl-8": categoria.nivel === 2,
+                        "pl-12": categoria.nivel >= 3,
+                      })}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          normalizedValue.includes(categoria.id) ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">{categoria.nome}</div>
+                        <div className="text-xs text-gray-500">{categoria.caminho}</div>
+                      </div>
+                    </CommandItem>
+                    <CommandItem
+                      key={`sub-${categoria.id}`}
+                      onSelect={() => handleNewCategory(categoria)}
+                      className={cn("cursor-pointer text-blue-600 hover:text-blue-700", {
+                        "pl-6": categoria.nivel === 0,
+                        "pl-10": categoria.nivel === 1,
+                        "pl-14": categoria.nivel === 2,
+                        "pl-18": categoria.nivel >= 3,
+                      })}
+                    >
+                      <Plus className="mr-2 h-3 w-3" />
+                      <span className="text-xs">Adicionar subcategoria</span>
+                    </CommandItem>
+                  </div>
                 ))}
               </CommandGroup>
             </CommandList>
@@ -136,6 +206,21 @@ export function CategorySelect({
           ))}
         </div>
       )}
+
+      {/* Modal para nova categoria */}
+      <Dialog open={isNewCategoryOpen} onOpenChange={setIsNewCategoryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {categoriaPai ? `Adicionar Subcategoria em "${categoriaPai.nome}"` : 'Nova Categoria'}
+            </DialogTitle>
+          </DialogHeader>
+          <NovaCategoriaForm 
+            categoriaPai={categoriaPai}
+            onSuccess={handleCategorySuccess}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
