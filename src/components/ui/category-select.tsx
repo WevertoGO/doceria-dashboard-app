@@ -11,8 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
 interface CategorySelectProps {
-  value?: number[];
-  onChange: (value: number[]) => void;
+  value?: string[];
+  onChange: (value: string[]) => void;
   placeholder?: string;
   multiple?: boolean;
   onNewCategory?: () => void;
@@ -41,7 +41,7 @@ export function CategorySelect({
   const [loading, setLoading] = useState(true);
 
   // Ensure value is always an array and handle undefined/null cases
-  const normalizedValue = Array.isArray(value) ? value.map(String) : [];
+  const normalizedValue = Array.isArray(value) ? value : [];
 
   useEffect(() => {
     carregarCategorias();
