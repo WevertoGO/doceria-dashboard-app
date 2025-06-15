@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Button } from '@/components/ui/button';
@@ -8,85 +8,8 @@ import { Plus, Search, Edit, Trash2, ChevronRight, ChevronDown, FolderOpen, Fold
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { NovaCategoriaForm } from '@/components/forms/NovaCategoriaForm';
 import { EditarCategoriaForm } from '@/components/forms/EditarCategoriaForm';
-
-// Mock data - estrutura hierárquica de categorias
-const categorias = [
-  {
-    id: 1,
-    nome: 'Bolos',
-    nivel: 0,
-    categoriaPaiId: null,
-    ativo: true,
-    produtosCount: 15,
-    subcategorias: [
-      {
-        id: 2,
-        nome: 'Tradicionais',
-        nivel: 1,
-        categoriaPaiId: 1,
-        ativo: true,
-        produtosCount: 8,
-        subcategorias: [
-          {
-            id: 3,
-            nome: 'Chocolate',
-            nivel: 2,
-            categoriaPaiId: 2,
-            ativo: true,
-            produtosCount: 3,
-            subcategorias: []
-          },
-          {
-            id: 4,
-            nome: 'Baunilha',
-            nivel: 2,
-            categoriaPaiId: 2,
-            ativo: true,
-            produtosCount: 2,
-            subcategorias: []
-          }
-        ]
-      },
-      {
-        id: 5,
-        nome: 'Especiais',
-        nivel: 1,
-        categoriaPaiId: 1,
-        ativo: true,
-        produtosCount: 7,
-        subcategorias: []
-      }
-    ]
-  },
-  {
-    id: 6,
-    nome: 'Docinhos',
-    nivel: 0,
-    categoriaPaiId: null,
-    ativo: true,
-    produtosCount: 25,
-    subcategorias: [
-      {
-        id: 7,
-        nome: 'Brigadeiros',
-        nivel: 1,
-        categoriaPaiId: 6,
-        ativo: true,
-        produtosCount: 12,
-        subcategorias: []
-      },
-      {
-        id: 8,
-        nome: 'Beijinhos',
-        nivel: 1,
-        categoriaPaiId: 6,
-        ativo: true,
-        produtosCount: 8,
-        subcategorias: []
-      }
-    ]
-  }
-];
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface CategoriaTreeItemProps {
   categoria: any;
@@ -182,6 +105,54 @@ const Categorias = () => {
   const [isEditarCategoriaOpen, setIsEditarCategoriaOpen] = useState(false);
   const [categoriaParaEditar, setCategoriaParaEditar] = useState<any>(null);
   const [categoriaPai, setCategoriaPai] = useState<any>(null);
+  const [categorias, setCategorias] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    carregarCategorias();
+  }, []);
+
+  const carregarCategorias = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('categorias')
+        .select('*')
+        .order('nome');
+
+      if (error) throw error;
+
+      // Contar produtos por categoria
+      const categoriasComContador = await Promise.all(
+        (data || []).map(async (categoria) => {
+          const { count } = await supabase
+            .from('produtos')
+            .select('*', { count: 'exact', head: true })
+            .eq('categoria_id', categoria.id)
+            .eq('ativo', true);
+
+          return {
+            ...categoria,
+            produtosCount: count || 0,
+            nivel: 0,
+            subcategorias: [],
+          };
+        })
+      );
+
+      setCategorias(categoriasComContador);
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível carregar as categorias.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEdit = (categoria: any) => {
     setCategoriaParaEditar(categoria);
@@ -259,16 +230,28 @@ const Categorias = () => {
             {/* Árvore de Categorias */}
             <div className="section-card">
               <div className="space-y-1">
-                {categorias.map((categoria) => (
-                  <CategoriaTreeItem
-                    key={categoria.id}
-                    categoria={categoria}
-                    nivel={0}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onAddSubcategoria={handleAddSubcategoria}
-                  />
-                ))}
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="p-3 animate-pulse">
+                      <div className="h-4 bg-gray-200 rounded"></div>
+                    </div>
+                  ))
+                ) : categorias.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">Nenhuma categoria encontrada</p>
+                  </div>
+                ) : (
+                  categorias.map((categoria) => (
+                    <CategoriaTreeItem
+                      key={categoria.id}
+                      categoria={categoria}
+                      nivel={0}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onAddSubcategoria={handleAddSubcategoria}
+                    />
+                  ))
+                )}
               </div>
             </div>
           </div>

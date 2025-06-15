@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Button } from '@/components/ui/button';
@@ -7,33 +7,46 @@ import { Input } from '@/components/ui/input';
 import { Plus, Search, Edit, Trash2, Settings } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { NovoProdutoForm } from '@/components/forms/NovoProdutoForm';
-
-const produtos = [
-  {
-    id: 1,
-    nome: 'Bolo de Chocolate',
-    categoria: 'Bolos',
-    valor: 45.00,
-    unidade: 'unid',
-  },
-  {
-    id: 2,
-    nome: 'Brigadeiros Gourmet',
-    categoria: 'Docinhos',
-    valor: 2.50,
-    unidade: 'unid',
-  },
-  {
-    id: 3,
-    nome: 'Torta de Limão',
-    categoria: 'Tortas',
-    valor: 60.00,
-    unidade: 'unid',
-  },
-];
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const Produtos = () => {
   const [isNewProductOpen, setIsNewProductOpen] = useState(false);
+  const [produtos, setProdutos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    carregarProdutos();
+  }, []);
+
+  const carregarProdutos = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('produtos')
+        .select(`
+          *,
+          categorias (
+            nome
+          )
+        `)
+        .eq('ativo', true);
+
+      if (error) throw error;
+
+      setProdutos(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar produtos:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível carregar os produtos.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SidebarProvider>
@@ -89,30 +102,49 @@ const Produtos = () => {
 
             {/* Grid de Produtos */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {produtos.map((produto) => (
-                <div key={produto.id} className="section-card hover:shadow-md transition-shadow">
-                  <div className="aspect-square bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
-                    <span className="text-4xl">🍰</span>
+              {loading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="section-card animate-pulse">
+                    <div className="aspect-square bg-gray-200 rounded-lg mb-4"></div>
+                    <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded mb-3"></div>
+                    <div className="h-4 bg-gray-200 rounded mb-4"></div>
+                    <div className="flex gap-2">
+                      <div className="h-8 bg-gray-200 rounded flex-1"></div>
+                      <div className="h-8 w-8 bg-gray-200 rounded"></div>
+                    </div>
                   </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">{produto.nome}</h3>
-                  <p className="text-sm text-gray-600 mb-3">{produto.categoria}</p>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-lg font-bold text-green-600">
-                      R$ {produto.valor.toFixed(2)}
-                    </span>
-                    <span className="text-sm text-gray-500">/{produto.unidade}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1">
-                      <Edit className="h-3 w-3 mr-1" />
-                      Editar
-                    </Button>
-                    <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
+                ))
+              ) : produtos.length === 0 ? (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-gray-500">Nenhum produto encontrado</p>
                 </div>
-              ))}
+              ) : (
+                produtos.map((produto) => (
+                  <div key={produto.id} className="section-card hover:shadow-md transition-shadow">
+                    <div className="aspect-square bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
+                      <span className="text-4xl">🍰</span>
+                    </div>
+                    <h3 className="font-semibold text-gray-900 mb-2">{produto.nome}</h3>
+                    <p className="text-sm text-gray-600 mb-3">{produto.categorias?.nome || 'Sem categoria'}</p>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-lg font-bold text-green-600">
+                        R$ {Number(produto.preco).toFixed(2)}
+                      </span>
+                      <span className="text-sm text-gray-500">/{produto.unidade}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1">
+                        <Edit className="h-3 w-3 mr-1" />
+                        Editar
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </main>
