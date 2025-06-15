@@ -23,12 +23,22 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
   };
 
   const atualizarTelefone = (index: number, valor: string) => {
-    // Formatar telefone - permitir apenas números, parênteses, espaços e hífens
-    const telefoneFormatado = valor
-      .replace(/[^\d()\s-]/g, '') // Remove caracteres não permitidos
-      .replace(/(\d{2})(\d)/, '($1) $2') // Adiciona parênteses no DDD
-      .replace(/(\d{4,5})(\d{4})$/, '$1-$2') // Adiciona hífen no final
-      .substring(0, 15); // Limita o tamanho
+    // Remove todos os caracteres não numéricos
+    const apenasNumeros = valor.replace(/\D/g, '');
+    
+    let telefoneFormatado = '';
+    
+    if (apenasNumeros.length <= 2) {
+      telefoneFormatado = apenasNumeros;
+    } else if (apenasNumeros.length <= 3) {
+      telefoneFormatado = `(${apenasNumeros.slice(0, 2)}) ${apenasNumeros.slice(2)}`;
+    } else if (apenasNumeros.length <= 7) {
+      telefoneFormatado = `(${apenasNumeros.slice(0, 2)}) ${apenasNumeros.slice(2)}`;
+    } else if (apenasNumeros.length <= 10) {
+      telefoneFormatado = `(${apenasNumeros.slice(0, 2)}) ${apenasNumeros.slice(2, 6)}-${apenasNumeros.slice(6)}`;
+    } else {
+      telefoneFormatado = `(${apenasNumeros.slice(0, 2)}) ${apenasNumeros.slice(2, 7)}-${apenasNumeros.slice(7, 11)}`;
+    }
 
     const novosTelefones = [...telefones];
     novosTelefones[index] = telefoneFormatado;

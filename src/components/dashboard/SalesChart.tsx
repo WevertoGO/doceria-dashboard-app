@@ -1,41 +1,110 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const weekData = [
-  { name: 'Seg', vendas: 850 },
-  { name: 'Ter', vendas: 1200 },
-  { name: 'Qua', vendas: 980 },
-  { name: 'Qui', vendas: 1400 },
-  { name: 'Sex', vendas: 1800 },
-  { name: 'Sáb', vendas: 2200 },
-  { name: 'Dom', vendas: 1600 },
-];
-
-const monthData = [
-  { name: 'Sem 1', vendas: 8500 },
-  { name: 'Sem 2', vendas: 12000 },
-  { name: 'Sem 3', vendas: 9800 },
-  { name: 'Sem 4', vendas: 14000 },
-];
-
-const yearData = [
-  { name: 'Jan', vendas: 35000 },
-  { name: 'Fev', vendas: 42000 },
-  { name: 'Mar', vendas: 38000 },
-  { name: 'Abr', vendas: 45000 },
-  { name: 'Mai', vendas: 48000 },
-  { name: 'Jun', vendas: 52000 },
-];
-
-const chartOptions = [
-  { key: 'week', label: 'Vendas por Dia da Semana', data: weekData },
-  { key: 'month', label: 'Vendas por Semana do Mês', data: monthData },
-  { key: 'year', label: 'Vendas por Mês do Ano', data: yearData },
-];
 
 export function SalesChart() {
   const [selectedChart, setSelectedChart] = useState('week');
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const chartOptions = [
+    { key: 'week', label: 'Vendas por Dia da Semana' },
+    { key: 'month', label: 'Vendas por Semana do Mês' },
+    { key: 'year', label: 'Vendas por Mês do Ano' },
+  ];
+
+  useEffect(() => {
+    carregarDadosGrafico();
+  }, [selectedChart]);
+
+  const carregarDadosGrafico = async () => {
+    try {
+      setLoading(true);
+      let dados: any[] = [];
+
+      if (selectedChart === 'week') {
+        // Últimos 7 dias
+        const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+        const hoje = new Date();
+        dados = [];
+
+        for (let i = 6; i >= 0; i--) {
+          const data = new Date(hoje);
+          data.setDate(data.getDate() - i);
+          const dataStr = data.toISOString().split('T')[0];
+
+          const { data: pedidos } = await supabase
+            .from('pedidos')
+            .select('valor_total')
+            .gte('created_at', dataStr + 'T00:00:00')
+            .lt('created_at', dataStr + 'T23:59:59');
+
+          const vendas = (pedidos || []).reduce((total, p) => total + Number(p.valor_total), 0);
+          
+          dados.push({
+            name: diasSemana[data.getDay()],
+            vendas: vendas
+          });
+        }
+      } else if (selectedChart === 'month') {
+        // Últimas 4 semanas
+        const hoje = new Date();
+        dados = [];
+
+        for (let i = 3; i >= 0; i--) {
+          const inicioSemana = new Date(hoje);
+          inicioSemana.setDate(hoje.getDate() - (i * 7) - 6);
+          const fimSemana = new Date(hoje);
+          fimSemana.setDate(hoje.getDate() - (i * 7));
+
+          const { data: pedidos } = await supabase
+            .from('pedidos')
+            .select('valor_total')
+            .gte('created_at', inicioSemana.toISOString().split('T')[0])
+            .lte('created_at', fimSemana.toISOString().split('T')[0]);
+
+          const vendas = (pedidos || []).reduce((total, p) => total + Number(p.valor_total), 0);
+          
+          dados.push({
+            name: `Sem ${4 - i}`,
+            vendas: vendas
+          });
+        }
+      } else if (selectedChart === 'year') {
+        // Últimos 6 meses
+        const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const hoje = new Date();
+        dados = [];
+
+        for (let i = 5; i >= 0; i--) {
+          const mes = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+          const proximoMes = new Date(hoje.getFullYear(), hoje.getMonth() - i + 1, 0);
+
+          const { data: pedidos } = await supabase
+            .from('pedidos')
+            .select('valor_total')
+            .gte('created_at', mes.toISOString().split('T')[0])
+            .lte('created_at', proximoMes.toISOString().split('T')[0]);
+
+          const vendas = (pedidos || []).reduce((total, p) => total + Number(p.valor_total), 0);
+          
+          dados.push({
+            name: meses[mes.getMonth()],
+            vendas: vendas
+          });
+        }
+      }
+
+      setChartData(dados);
+    } catch (error) {
+      console.error('Erro ao carregar dados do gráfico:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const currentChart = chartOptions.find(chart => chart.key === selectedChart) || chartOptions[0];
 
   return (
@@ -55,8 +124,13 @@ export function SalesChart() {
       </div>
       
       <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={currentChart.data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-pulse text-gray-500">Carregando dados...</div>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis 
               dataKey="name" 
@@ -85,6 +159,7 @@ export function SalesChart() {
             />
           </BarChart>
         </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

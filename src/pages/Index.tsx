@@ -9,7 +9,7 @@ import { UpcomingDeliveries } from '@/components/dashboard/UpcomingDeliveries';
 import { TopProducts } from '@/components/dashboard/TopProducts';
 import { RecentOrders } from '@/components/dashboard/RecentOrders';
 import { SalesChart } from '@/components/dashboard/SalesChart';
-import { TrendingUp, Users, DollarSign, ShoppingBag, Search, Bell, LogOut } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, ShoppingBag, Search, LogOut } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -146,11 +146,6 @@ const Index = () => {
                   />
                 </div>
 
-                {/* Notificações */}
-                <div className="relative">
-                  <Bell className="h-6 w-6 text-gray-600 cursor-pointer hover:text-confeitaria-primary transition-colors" />
-                  <Badge className="notification-badge">3</Badge>
-                </div>
 
                 {/* Logout button */}
                 <Button

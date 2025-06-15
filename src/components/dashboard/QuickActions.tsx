@@ -1,5 +1,6 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Plus, UserPlus, Package, FileText, Clock, BarChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,6 +11,36 @@ import { Badge } from '@/components/ui/badge';
 
 export function QuickActions() {
   const [openDialog, setOpenDialog] = useState<string | null>(null);
+  const [pedidosPendentes, setPedidosPendentes] = useState(0);
+  const [entregasHoje, setEntregasHoje] = useState(0);
+
+  useEffect(() => {
+    carregarDados();
+  }, []);
+
+  const carregarDados = async () => {
+    try {
+      // Pedidos pendentes (em produção)
+      const { data: pendentes } = await supabase
+        .from('pedidos')
+        .select('id')
+        .eq('status', 'producao');
+
+      setPedidosPendentes(pendentes?.length || 0);
+
+      // Entregas hoje
+      const hoje = new Date().toISOString().split('T')[0];
+      const { data: entregasHojeData } = await supabase
+        .from('pedidos')
+        .select('id')
+        .eq('data_entrega', hoje)
+        .neq('status', 'retirado');
+
+      setEntregasHoje(entregasHojeData?.length || 0);
+    } catch (error) {
+      console.error('Erro ao carregar dados das ações rápidas:', error);
+    }
+  };
 
   const actions = [
     {
@@ -42,7 +73,7 @@ export function QuickActions() {
       icon: Clock,
       color: 'bg-orange-500 hover:bg-orange-600',
       dialog: null,
-      badge: '8',
+      badge: pedidosPendentes.toString(),
     },
     {
       title: 'Entregas Hoje',
@@ -50,7 +81,7 @@ export function QuickActions() {
       icon: FileText,
       color: 'bg-purple-500 hover:bg-purple-600',
       dialog: null,
-      badge: '5',
+      badge: entregasHoje.toString(),
     },
     {
       title: 'Relatórios',
@@ -67,6 +98,11 @@ export function QuickActions() {
       setOpenDialog(action.dialog);
     } else if (action.title === 'Relatórios') {
       window.location.href = '/relatorios';
+    } else if (action.title === 'Pedidos Pendentes') {
+      window.location.href = '/pedidos?status=producao';
+    } else if (action.title === 'Entregas Hoje') {
+      const hoje = new Date().toISOString().split('T')[0];
+      window.location.href = `/pedidos?entrega=${hoje}`;
     } else {
       console.log(`Executando ação: ${action.title}`);
     }
