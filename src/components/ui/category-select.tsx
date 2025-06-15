@@ -1,4 +1,3 @@
-
 import { useState, useMemo, useEffect } from 'react';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -38,6 +37,7 @@ export function CategorySelect({
   const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [categoriaPai, setCategoriaPai] = useState<Categoria | null>(null);
+  const [keepCreatingSub, setKeepCreatingSub] = useState(false); // novo estado
   const [loading, setLoading] = useState(true);
 
   // Ensure value is always an array and handle undefined/null cases
@@ -71,7 +71,6 @@ export function CategorySelect({
     const categoriaMap = new Map<string, Categoria>();
     const categoriasRaiz: Categoria[] = [];
 
-    // Primeiro, criar o mapa de todas as categorias
     categorias.forEach(cat => {
       categoriaMap.set(cat.id, {
         ...cat,
@@ -81,10 +80,8 @@ export function CategorySelect({
       });
     });
 
-    // Depois, organizar a hierarquia
     categorias.forEach(cat => {
       const categoria = categoriaMap.get(cat.id)!;
-      
       if (cat.parent_id) {
         const pai = categoriaMap.get(cat.parent_id);
         if (pai) {
@@ -97,9 +94,7 @@ export function CategorySelect({
       }
     });
 
-    // Retornar lista plana para o select (ordenada por caminho)
     const listaPlana: Categoria[] = [];
-    
     const adicionarRecursivo = (cats: Categoria[]) => {
       cats.sort((a, b) => a.nome.localeCompare(b.nome));
       cats.forEach(cat => {
@@ -147,17 +142,30 @@ export function CategorySelect({
 
   const handleNewCategory = (categoriaPai?: Categoria) => {
     setCategoriaPai(categoriaPai || null);
+    setKeepCreatingSub(!!categoriaPai); // Se for subcategoria, inicia fluxo de múltiplos
     setIsNewCategoryOpen(true);
     setOpen(false);
   };
 
+  // Função de sucesso do cadastro: se keepCreatingSub, mantem modal (para várias subcategorias)
   const handleCategorySuccess = () => {
-    setIsNewCategoryOpen(false);
-    setCategoriaPai(null);
     carregarCategorias();
-    if (onNewCategory) {
-      onNewCategory();
+    if (onNewCategory) onNewCategory();
+    if (keepCreatingSub && categoriaPai) {
+      // Reinicia formulário mantendo o pai para criar outra sub
+      setIsNewCategoryOpen(true);
+    } else {
+      // Fecha modal normalmente
+      setIsNewCategoryOpen(false);
+      setCategoriaPai(null);
+      setKeepCreatingSub(false);
     }
+  };
+
+  // Botão para o usuário criar mais subcategorias
+  const handleKeepCreatingSub = () => {
+    setIsNewCategoryOpen(true);
+    setKeepCreatingSub(true);
   };
 
   return (
@@ -250,7 +258,13 @@ export function CategorySelect({
       )}
 
       {/* Modal para nova categoria */}
-      <Dialog open={isNewCategoryOpen} onOpenChange={setIsNewCategoryOpen}>
+      <Dialog open={isNewCategoryOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsNewCategoryOpen(false);
+          setCategoriaPai(null);
+          setKeepCreatingSub(false);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -261,6 +275,29 @@ export function CategorySelect({
             categoriaPai={categoriaPai}
             onSuccess={handleCategorySuccess}
           />
+          {/* Se está criando subcategoria, mostra botão para criar outra */}
+          {keepCreatingSub && (
+            <div className="flex flex-col gap-2 mt-4">
+              <Button 
+                onClick={handleKeepCreatingSub}
+                variant="outline"
+                className="w-full"
+              >
+                Adicionar outra subcategoria
+              </Button>
+              <Button 
+                onClick={() => {
+                  setIsNewCategoryOpen(false);
+                  setCategoriaPai(null);
+                  setKeepCreatingSub(false);
+                }}
+                variant="ghost"
+                className="w-full"
+              >
+                Fechar
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
