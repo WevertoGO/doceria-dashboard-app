@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,23 +10,11 @@ import { NovoClienteForm } from '@/components/forms/NovoClienteForm';
 import { NovoProdutoForm } from '@/components/forms/NovoProdutoForm';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface NovoPedidoFormProps {
   onSuccess: () => void;
 }
-
-// Mock data
-const clientesDisponiveis = [
-  { id: 1, nome: 'Maria Silva', telefone: '(11) 99999-9999' },
-  { id: 2, nome: 'João Santos', telefone: '(11) 88888-8888' },
-  { id: 3, nome: 'Ana Costa', telefone: '(11) 77777-7777' },
-];
-
-const produtosDisponiveis = [
-  { id: 1, nome: 'Bolo de Chocolate', categoria: 'Bolos > Tradicionais', valor: 45.00, imagem: '🍰' },
-  { id: 2, nome: 'Brigadeiros Gourmet', categoria: 'Docinhos > Brigadeiros', valor: 2.50, imagem: '🍫' },
-  { id: 3, nome: 'Torta de Limão', categoria: 'Bolos > Especiais', valor: 60.00, imagem: '🥧' },
-];
 
 export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
   const [step, setStep] = useState('cliente');
@@ -37,10 +25,71 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
   const [entrega, setEntrega] = useState({ data: '', periodo: 'manha', observacoes: '' });
   const [isNovoClienteOpen, setIsNovoClienteOpen] = useState(false);
   const [isNovoProdutoOpen, setIsNovoProdutoOpen] = useState(false);
+  
+  // Estado para dados do banco
+  const [clientesDisponiveis, setClientesDisponiveis] = useState<any[]>([]);
+  const [produtosDisponiveis, setProdutosDisponiveis] = useState<any[]>([]);
+  const [loadingClientes, setLoadingClientes] = useState(false);
+  const [loadingProdutos, setLoadingProdutos] = useState(false);
+
+  useEffect(() => {
+    carregarClientes();
+    carregarProdutos();
+  }, []);
+
+  const carregarClientes = async () => {
+    try {
+      setLoadingClientes(true);
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .order('nome');
+
+      if (error) throw error;
+      setClientesDisponiveis(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar clientes:', error);
+      toast.error('Erro ao carregar clientes');
+    } finally {
+      setLoadingClientes(false);
+    }
+  };
+
+  const carregarProdutos = async () => {
+    try {
+      setLoadingProdutos(true);
+      const { data, error } = await supabase
+        .from('produtos')
+        .select(`
+          *,
+          categorias (
+            nome
+          )
+        `)
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) throw error;
+      
+      const produtosFormatados = (data || []).map(produto => ({
+        ...produto,
+        valor: Number(produto.preco),
+        categoria: produto.categorias?.nome || 'Sem categoria',
+        imagem: '🍰'
+      }));
+      
+      setProdutosDisponiveis(produtosFormatados);
+    } catch (error) {
+      console.error('Erro ao carregar produtos:', error);
+      toast.error('Erro ao carregar produtos');
+    } finally {
+      setLoadingProdutos(false);
+    }
+  };
 
   const clientesFiltrados = clientesDisponiveis.filter(c => 
     c.nome.toLowerCase().includes(buscaCliente.toLowerCase()) ||
-    c.telefone.includes(buscaCliente)
+    (c.telefone && c.telefone.includes(buscaCliente))
   );
 
   const produtosFiltrados = produtosDisponiveis.filter(p => 

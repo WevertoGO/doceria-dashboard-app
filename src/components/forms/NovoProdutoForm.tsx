@@ -1,11 +1,11 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { CategorySelect } from '@/components/ui/category-select';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface NovoProdutoFormProps {
   onSuccess: () => void;
@@ -16,9 +16,33 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
     nome: '',
     descricao: '',
     valor: '',
-    unidade: 'unid'
+    unidade: 'unid',
+    categoria_id: ''
   });
-  const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<number[]>([]);
+  const [categorias, setCategorias] = useState<any[]>([]);
+  const [loadingCategorias, setLoadingCategorias] = useState(false);
+
+  useEffect(() => {
+    carregarCategorias();
+  }, []);
+
+  const carregarCategorias = async () => {
+    try {
+      setLoadingCategorias(true);
+      const { data, error } = await supabase
+        .from('categorias')
+        .select('*')
+        .order('nome');
+
+      if (error) throw error;
+      setCategorias(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error);
+      toast.error('Erro ao carregar categorias');
+    } finally {
+      setLoadingCategorias(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,8 +52,8 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
       return;
     }
 
-    if (categoriasSelecionadas.length === 0) {
-      toast.error('Selecione pelo menos uma categoria');
+    if (!produto.categoria_id) {
+      toast.error('Selecione uma categoria');
       return;
     }
 
@@ -70,17 +94,24 @@ export function NovoProdutoForm({ onSuccess }: NovoProdutoFormProps) {
       </div>
 
       <div>
-        <Label>Categorias *</Label>
-        <CategorySelect
-          value={categoriasSelecionadas}
-          onChange={setCategoriasSelecionadas}
-          placeholder="Selecione as categorias do produto..."
-          multiple={true}
-          onNewCategory={() => {
-            // TODO: Abrir modal de nova categoria inline
-            console.log('Nova categoria');
-          }}
-        />
+        <Label htmlFor="categoria">Categoria *</Label>
+        <select
+          id="categoria"
+          value={produto.categoria_id}
+          onChange={(e) => setProduto({ ...produto, categoria_id: e.target.value })}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+          required
+        >
+          <option value="">Selecione uma categoria...</option>
+          {categorias.map((categoria) => (
+            <option key={categoria.id} value={categoria.id}>
+              {categoria.nome}
+            </option>
+          ))}
+        </select>
+        {loadingCategorias && (
+          <p className="text-sm text-gray-500 mt-1">Carregando categorias...</p>
+        )}
       </div>
 
       <div>

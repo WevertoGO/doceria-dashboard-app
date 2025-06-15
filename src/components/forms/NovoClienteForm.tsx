@@ -23,9 +23,22 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
   };
 
   const atualizarTelefone = (index: number, valor: string) => {
+    // Formatar telefone - permitir apenas números, parênteses, espaços e hífens
+    const telefoneFormatado = valor
+      .replace(/[^\d()\s-]/g, '') // Remove caracteres não permitidos
+      .replace(/(\d{2})(\d)/, '($1) $2') // Adiciona parênteses no DDD
+      .replace(/(\d{4,5})(\d{4})$/, '$1-$2') // Adiciona hífen no final
+      .substring(0, 15); // Limita o tamanho
+
     const novosTelefones = [...telefones];
-    novosTelefones[index] = valor;
+    novosTelefones[index] = telefoneFormatado;
     setTelefones(novosTelefones);
+  };
+
+  const validarTelefone = (telefone: string) => {
+    // Valida formato (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+    const regexTelefone = /^\(\d{2}\)\s\d{4,5}-\d{4}$/;
+    return regexTelefone.test(telefone);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -39,6 +52,19 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
     if (!telefones[0].trim()) {
       toast.error('Pelo menos um telefone é obrigatório');
       return;
+    }
+
+    if (!validarTelefone(telefones[0])) {
+      toast.error('Formato de telefone inválido. Use: (11) 99999-9999');
+      return;
+    }
+
+    // Validar telefones adicionais se preenchidos
+    for (let i = 1; i < telefones.length; i++) {
+      if (telefones[i].trim() && !validarTelefone(telefones[i])) {
+        toast.error(`Telefone ${i + 1} com formato inválido. Use: (11) 99999-9999`);
+        return;
+      }
     }
 
     toast.success('Cliente cadastrado com sucesso!');
