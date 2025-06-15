@@ -38,20 +38,31 @@ export function NovaCategoriaForm({ categoriaPai, onSuccess }: NovaCategoriaForm
     try {
       setLoading(true);
       
+      console.log('Criando categoria com dados:', {
+        nome: nome.trim(),
+        descricao: descricao.trim() || null,
+        parent_id: categoriaPai?.id || null
+      });
+
       const { error } = await supabase
         .from('categorias')
         .insert({
           nome: nome.trim(),
           descricao: descricao.trim() || null,
+          parent_id: categoriaPai?.id || null
         });
 
       if (error) throw error;
 
+      const tipoCategoria = categoriaPai ? 'subcategoria' : 'categoria';
       toast({
         title: 'Sucesso',
-        description: `Categoria "${nome}" criada com sucesso!`,
+        description: `${tipoCategoria.charAt(0).toUpperCase() + tipoCategoria.slice(1)} "${nome}" criada com sucesso!`,
       });
       
+      // Limpar o formulário
+      setNome('');
+      setDescricao('');
       onSuccess();
     } catch (error) {
       console.error('Erro ao criar categoria:', error);
@@ -112,7 +123,7 @@ export function NovaCategoriaForm({ categoriaPai, onSuccess }: NovaCategoriaForm
           Cancelar
         </Button>
         <Button type="submit" className="bg-green-500 hover:bg-green-600" disabled={loading}>
-          {loading ? 'Criando...' : 'Criar Categoria'}
+          {loading ? 'Criando...' : categoriaPai ? 'Criar Subcategoria' : 'Criar Categoria'}
         </Button>
       </div>
     </form>
