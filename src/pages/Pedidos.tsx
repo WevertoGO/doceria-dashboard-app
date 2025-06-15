@@ -134,7 +134,11 @@ const Pedidos = () => {
                   <DialogHeader>
                     <DialogTitle>Novo Pedido</DialogTitle>
                   </DialogHeader>
-                  <NovoPedidoForm onSuccess={() => setIsNewOrderOpen(false)} />
+                  <NovoPedidoForm onSuccess={() => {
+                    setIsNewOrderOpen(false);
+                    carregarPedidos();
+                    carregarMetricas();
+                  }} />
                 </DialogContent>
               </Dialog>
             </div>

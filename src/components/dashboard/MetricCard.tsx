@@ -8,12 +8,28 @@ interface MetricCardProps {
   icon: React.ReactNode;
   className?: string;
   isPrimary?: boolean;
+  loading?: boolean;
 }
 
-export function MetricCard({ title, value, change, icon, className = '', isPrimary = false }: MetricCardProps) {
+export function MetricCard({ title, value, change, icon, className = '', isPrimary = false, loading = false }: MetricCardProps) {
   const changeColor = change && change > 0 ? 'text-confeitaria-success' : 'text-confeitaria-error';
   const ChangeIcon = change && change > 0 ? TrendingUp : TrendingDown;
   const changeSymbol = change && change > 0 ? '↗️' : '↘️';
+
+  if (loading) {
+    return (
+      <div className={`metric-card ${isPrimary ? 'metric-card-primary' : ''} animate-pulse ${className}`}>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="h-4 bg-gray-200 rounded mb-3"></div>
+            <div className={`h-8 bg-gray-200 rounded mb-3 ${isPrimary ? 'w-32' : 'w-24'}`}></div>
+            <div className="h-3 bg-gray-200 rounded w-20"></div>
+          </div>
+          <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`metric-card ${isPrimary ? 'metric-card-primary' : ''} animate-fade-in ${className}`}>

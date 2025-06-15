@@ -6,14 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { NovoClienteForm } from '@/components/forms/NovoClienteForm';
+import { EditarClienteForm } from '@/components/forms/EditarClienteForm';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 const Clientes = () => {
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
+  const [isEditClientOpen, setIsEditClientOpen] = useState(false);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [clientes, setClientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -67,6 +72,41 @@ const Clientes = () => {
     }
   };
 
+  const handleEditClient = (clienteId: string) => {
+    setEditingClientId(clienteId);
+    setIsEditClientOpen(true);
+  };
+
+  const handleDeleteClient = async (clienteId: string) => {
+    try {
+      const { error } = await supabase
+        .from('clientes')
+        .delete()
+        .eq('id', clienteId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sucesso',
+        description: 'Cliente removido com sucesso!',
+      });
+
+      carregarClientes();
+    } catch (error) {
+      console.error('Erro ao remover cliente:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível remover o cliente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const clientesFiltrados = clientes.filter(cliente =>
+    cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cliente.telefone?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-bakery-soft">
@@ -92,7 +132,10 @@ const Clientes = () => {
                   <DialogHeader>
                     <DialogTitle>Cadastrar Cliente</DialogTitle>
                   </DialogHeader>
-                  <NovoClienteForm onSuccess={() => setIsNewClientOpen(false)} />
+                  <NovoClienteForm onSuccess={() => {
+                    setIsNewClientOpen(false);
+                    carregarClientes();
+                  }} />
                 </DialogContent>
               </Dialog>
             </div>
@@ -104,6 +147,8 @@ const Clientes = () => {
                 <Input
                   placeholder="Buscar por nome ou telefone..."
                   className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
@@ -139,7 +184,7 @@ const Clientes = () => {
                         </td>
                       </tr>
                     ) : (
-                      clientes.map((cliente) => (
+                      clientesFiltrados.map((cliente) => (
                         <tr key={cliente.id} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-3 px-4 font-medium text-gray-900">{cliente.nome}</td>
                           <td className="py-3 px-4 text-gray-600">{cliente.telefone || '-'}</td>
@@ -152,12 +197,37 @@ const Clientes = () => {
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex gap-2">
-                              <Button size="sm" variant="outline">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleEditClient(cliente.id)}
+                              >
                                 <Edit className="h-3 w-3" />
                               </Button>
-                              <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Confirmar remoção</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Tem certeza que deseja remover o cliente "{cliente.nome}"? Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => handleDeleteClient(cliente.id)}
+                                      className="bg-red-600 hover:bg-red-700"
+                                    >
+                                      Remover
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </div>
                           </td>
                         </tr>
@@ -170,6 +240,29 @@ const Clientes = () => {
           </div>
         </main>
       </div>
+
+      {/* Dialog para editar cliente */}
+      <Dialog open={isEditClientOpen} onOpenChange={setIsEditClientOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Cliente</DialogTitle>
+          </DialogHeader>
+          {editingClientId && (
+            <EditarClienteForm 
+              clienteId={editingClientId}
+              onSuccess={() => {
+                setIsEditClientOpen(false);
+                setEditingClientId(null);
+                carregarClientes();
+              }}
+              onCancel={() => {
+                setIsEditClientOpen(false);
+                setEditingClientId(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 };

@@ -6,14 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Search, Edit, Trash2, Settings } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { NovoProdutoForm } from '@/components/forms/NovoProdutoForm';
+import { EditarProdutoForm } from '@/components/forms/EditarProdutoForm';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 const Produtos = () => {
   const [isNewProductOpen, setIsNewProductOpen] = useState(false);
+  const [isEditProductOpen, setIsEditProductOpen] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [produtos, setProdutos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -48,6 +53,41 @@ const Produtos = () => {
     }
   };
 
+  const handleEditProduct = (produtoId: string) => {
+    setEditingProductId(produtoId);
+    setIsEditProductOpen(true);
+  };
+
+  const handleDeleteProduct = async (produtoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('produtos')
+        .update({ ativo: false })
+        .eq('id', produtoId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sucesso',
+        description: 'Produto removido com sucesso!',
+      });
+
+      carregarProdutos();
+    } catch (error) {
+      console.error('Erro ao remover produto:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível remover o produto.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const produtosFiltrados = produtos.filter(produto =>
+    produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    produto.categorias?.nome?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-bakery-soft">
@@ -78,7 +118,10 @@ const Produtos = () => {
                     <DialogHeader>
                       <DialogTitle>Adicionar Produto</DialogTitle>
                     </DialogHeader>
-                    <NovoProdutoForm onSuccess={() => setIsNewProductOpen(false)} />
+                    <NovoProdutoForm onSuccess={() => {
+                      setIsNewProductOpen(false);
+                      carregarProdutos();
+                    }} />
                   </DialogContent>
                 </Dialog>
               </div>
@@ -93,6 +136,8 @@ const Produtos = () => {
                     <Input
                       placeholder="Buscar produtos..."
                       className="pl-10"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                 </div>
@@ -120,7 +165,7 @@ const Produtos = () => {
                   <p className="text-gray-500">Nenhum produto encontrado</p>
                 </div>
               ) : (
-                produtos.map((produto) => (
+                produtosFiltrados.map((produto) => (
                   <div key={produto.id} className="section-card hover:shadow-md transition-shadow">
                     <div className="aspect-square bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
                       <span className="text-4xl">🍰</span>
@@ -134,13 +179,39 @@ const Produtos = () => {
                       <span className="text-sm text-gray-500">/{produto.unidade}</span>
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="flex-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => handleEditProduct(produto.id)}
+                      >
                         <Edit className="h-3 w-3 mr-1" />
                         Editar
                       </Button>
-                      <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Confirmar remoção</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja remover o produto "{produto.nome}"? Esta ação não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => handleDeleteProduct(produto.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Remover
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 ))
@@ -149,6 +220,29 @@ const Produtos = () => {
           </div>
         </main>
       </div>
+
+      {/* Dialog para editar produto */}
+      <Dialog open={isEditProductOpen} onOpenChange={setIsEditProductOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Produto</DialogTitle>
+          </DialogHeader>
+          {editingProductId && (
+            <EditarProdutoForm 
+              produtoId={editingProductId}
+              onSuccess={() => {
+                setIsEditProductOpen(false);
+                setEditingProductId(null);
+                carregarProdutos();
+              }}
+              onCancel={() => {
+                setIsEditProductOpen(false);
+                setEditingProductId(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 };
