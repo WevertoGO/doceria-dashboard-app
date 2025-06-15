@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
@@ -9,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { User, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ChangePasswordModal } from "@/components/settings/ChangePasswordModal";
 
 const Configuracoes = () => {
   const [userData, setUserData] = useState({
@@ -22,6 +22,7 @@ const Configuracoes = () => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [openChangePassword, setOpenChangePassword] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -179,13 +180,20 @@ const Configuracoes = () => {
                           >
                             {saving ? 'Salvando...' : 'Salvar Alterações'}
                           </Button>
-                          <Button variant="outline" className="flex-1" disabled={saving}>
+                          <Button variant="outline" className="flex-1"
+                            onClick={() => setOpenChangePassword(true)}
+                            disabled={saving}
+                          >
                             Alterar Senha
                           </Button>
                           <Button variant="destructive" size="icon" disabled={saving}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
+                        <ChangePasswordModal
+                          open={openChangePassword}
+                          onOpenChange={setOpenChangePassword}
+                        />
                       </>
                     )}
                   </CardContent>

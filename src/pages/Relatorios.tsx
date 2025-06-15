@@ -1,4 +1,3 @@
-
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ReportPeriodForm } from '@/components/forms/ReportPeriodForm';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+
+const periodLabels: Record<string, string> = {
+  "today": "de Hoje",
+  "week": "da Semana",
+  "month": "do Mês",
+  "semester": "do Semestre",
+  "year": "do Ano",
+  "all": "de Todo Período"
+};
 
 const Relatorios = () => {
   const [openReportDialog, setOpenReportDialog] = useState(false);
@@ -240,7 +248,7 @@ const Relatorios = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Vendas do Mês</CardTitle>
+                  <CardTitle className="text-sm font-medium">{`Vendas ${periodLabels[selectedPeriod]}`}</CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -334,7 +342,9 @@ const Relatorios = () => {
             {/* Seções de Relatórios */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="section-card">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Top 5 Produtos Mais Vendidos</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  {`Top 5 Produtos Mais Vendidos ${periodLabels[selectedPeriod]}`}
+                </h3>
                 <div className="space-y-3">
                   {loading ? (
                     Array.from({ length: 5 }).map((_, index) => (
@@ -363,7 +373,9 @@ const Relatorios = () => {
               </div>
 
               <div className="section-card">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Clientes Top</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  {`Clientes Top ${periodLabels[selectedPeriod]}`}
+                </h3>
                 <div className="space-y-3">
                   {loading ? (
                     Array.from({ length: 5 }).map((_, index) => (

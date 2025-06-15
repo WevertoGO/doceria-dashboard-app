@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
@@ -15,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { useGlobalSearch } from '@/hooks/useGlobalSearch';
 
 interface DashboardMetrics {
   faturamentoMensal: number;
@@ -27,6 +27,8 @@ interface DashboardMetrics {
 
 const Index = () => {
   const { signOut, user } = useAuth();
+  const { results, loading: searching, searchGlobal } = useGlobalSearch();
+  const [searchValue, setSearchValue] = useState("");
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     faturamentoMensal: 0,
     pedidosDoMes: 0,
@@ -138,15 +140,45 @@ const Index = () => {
 
               <div className="flex items-center gap-4">
                 {/* Busca Global */}
-                <div className="relative hidden md:block">
+                <div className="relative hidden md:block min-w-[320px]">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
                     placeholder="Buscar pedidos, clientes ou produtos..."
                     className="pl-10 w-80 bg-white"
+                    value={searchValue}
+                    onChange={e => {
+                      setSearchValue(e.target.value);
+                      searchGlobal(e.target.value);
+                    }}
                   />
+                  {searchValue && (
+                    <div className="absolute z-20 bg-white shadow-md w-full left-0 mt-1 max-h-60 rounded-lg overflow-auto border border-gray-100">
+                      {searching ? (
+                        <div className="px-4 py-2 text-gray-500 text-sm">Procurando...</div>
+                      ) : (
+                        results.length > 0 ? (
+                          results.map((r, i) =>
+                            <div key={r.id + i}
+                              className="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm"
+                            >
+                              {r.type === 'pedido' && (
+                                <>Pedido <span className="font-semibold">{r.id}</span> - R$ {Number(r.valor_total).toFixed(2)}</>
+                              )}
+                              {r.type === 'cliente' && (
+                                <>Cliente <span className="font-semibold">{r.nome}</span> - {r.telefone}</>
+                              )}
+                              {r.type === 'produto' && (
+                                <>Produto <span className="font-semibold">{r.nome}</span></>
+                              )}
+                            </div>
+                          )
+                        ) : (
+                          <div className="px-4 py-2 text-gray-400 text-sm">Nenhum resultado encontrado</div>
+                        )
+                      )}
+                    </div>
+                  )}
                 </div>
-
-
                 {/* Logout button */}
                 <Button
                   variant="ghost"
