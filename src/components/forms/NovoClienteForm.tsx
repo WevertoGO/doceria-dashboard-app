@@ -60,29 +60,39 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // VALIDAÇÕES OBRIGATÓRIAS
     if (!nome.trim()) {
-      toast({ title: 'Erro', description: 'Nome é obrigatório', variant: 'destructive' });
+      toast({ 
+        title: 'Campo obrigatório', 
+        description: 'O nome do cliente é obrigatório', 
+        variant: 'destructive' 
+      });
       return;
     }
 
     if (!telefones[0].trim()) {
-      toast({ title: 'Erro', description: 'Pelo menos um telefone é obrigatório', variant: 'destructive' });
+      toast({ 
+        title: 'Campo obrigatório', 
+        description: 'Pelo menos um telefone é obrigatório', 
+        variant: 'destructive' 
+      });
       return;
     }
 
     if (!validarTelefone(telefones[0])) {
       toast({
-        title: 'Erro',
-        description: 'Formato de telefone inválido. Use: (11) 99999-9999',
+        title: 'Telefone inválido',
+        description: 'O primeiro telefone deve ter formato válido: (11) 99999-9999',
         variant: 'destructive',
       });
       return;
     }
 
+    // Validar telefones adicionais (se preenchidos)
     for (let i = 1; i < telefones.length; i++) {
       if (telefones[i].trim() && !validarTelefone(telefones[i])) {
         toast({
-          title: 'Erro',
+          title: 'Telefone inválido',
           description: `Telefone ${i + 1} com formato inválido. Use: (11) 99999-9999`,
           variant: 'destructive',
         });
@@ -162,25 +172,29 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label htmlFor="nome">Nome do Cliente *</Label>
+        <Label htmlFor="nome" className="text-red-500">Nome do Cliente *</Label>
         <Input
           id="nome"
           value={nome}
           onChange={(e) => setNome(e.target.value)}
           placeholder="Digite o nome completo"
           required
+          className={!nome.trim() ? 'border-red-300 focus:border-red-500' : ''}
         />
+        {!nome.trim() && (
+          <p className="text-xs text-red-500 mt-1">⚠️ Nome é obrigatório</p>
+        )}
       </div>
 
       <div className="space-y-3">
-        <Label>Telefones</Label>
+        <Label className="text-red-500">Telefones *</Label>
         {telefones.map((telefone, index) => (
           <div key={index} className="flex gap-2">
             <Input
               value={telefone}
               onChange={(e) => atualizarTelefone(index, e.target.value)}
               placeholder="(11) 99999-9999"
-              className="flex-1"
+              className={`flex-1 ${index === 0 && !telefone.trim() ? 'border-red-300 focus:border-red-500' : ''}`}
               required={index === 0}
             />
             <Button
@@ -203,6 +217,9 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
             )}
           </div>
         ))}
+        {!telefones[0].trim() && (
+          <p className="text-xs text-red-500 mt-1">⚠️ Pelo menos um telefone é obrigatório</p>
+        )}
       </div>
 
       <div>
@@ -241,7 +258,11 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
         <Button type="button" variant="outline" onClick={onSuccess} disabled={loading}>
           Cancelar
         </Button>
-        <Button type="submit" className="bg-blue-500 hover:bg-blue-600" disabled={loading}>
+        <Button 
+          type="submit" 
+          className="bg-blue-500 hover:bg-blue-600" 
+          disabled={loading || !nome.trim() || !telefones[0].trim()}
+        >
           {loading ? 'Salvando...' : 'Salvar Cliente'}
         </Button>
       </div>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -146,26 +147,29 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
   const valorTotal = produtos.reduce((total, produto) => total + (produto.valor * produto.quantidade), 0);
 
   const handleSubmit = async () => {
+    // VALIDAÇÕES OBRIGATÓRIAS
     if (!cliente) {
       toast({
-        title: 'Erro',
-        description: 'Selecione um cliente',
+        title: 'Cliente obrigatório',
+        description: 'Você deve selecionar um cliente para criar o pedido',
         variant: 'destructive',
       });
       return;
     }
+    
     if (produtos.length === 0) {
       toast({
-        title: 'Erro',
-        description: 'Adicione pelo menos um produto',
+        title: 'Produtos obrigatórios',
+        description: 'Você deve adicionar pelo menos um produto ao pedido',
         variant: 'destructive',
       });
       return;
     }
+    
     if (!entrega.data) {
       toast({
-        title: 'Erro',
-        description: 'Selecione a data de entrega',
+        title: 'Data de entrega obrigatória',
+        description: 'Você deve selecionar a data de entrega do pedido',
         variant: 'destructive',
       });
       return;
@@ -242,15 +246,21 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
     <div className="space-y-6">
       <Tabs value={step} onValueChange={setStep} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="cliente">Cliente</TabsTrigger>
-          <TabsTrigger value="produtos">Produtos</TabsTrigger>
-          <TabsTrigger value="entrega">Entrega</TabsTrigger>
+          <TabsTrigger value="cliente" className={!cliente ? 'text-red-500' : ''}>
+            Cliente {!cliente && '*'}
+          </TabsTrigger>
+          <TabsTrigger value="produtos" className={produtos.length === 0 ? 'text-red-500' : ''}>
+            Produtos {produtos.length === 0 && '*'}
+          </TabsTrigger>
+          <TabsTrigger value="entrega" className={!entrega.data ? 'text-red-500' : ''}>
+            Entrega {!entrega.data && '*'}
+          </TabsTrigger>
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
         </TabsList>
 
         <TabsContent value="cliente" className="space-y-4">
           <div>
-            <Label htmlFor="busca-cliente">Buscar Cliente</Label>
+            <Label htmlFor="busca-cliente" className="text-red-500">Buscar Cliente *</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
@@ -261,6 +271,9 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
                 className="pl-10"
               />
             </div>
+            {!cliente && (
+              <p className="text-xs text-red-500 mt-1">⚠️ Selecionar um cliente é obrigatório</p>
+            )}
           </div>
 
           {cliente && (
@@ -319,7 +332,7 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
 
         <TabsContent value="produtos" className="space-y-4">
           <div>
-            <Label htmlFor="busca-produto">Buscar Produto</Label>
+            <Label htmlFor="busca-produto" className="text-red-500">Buscar Produto *</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
@@ -330,6 +343,9 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
                 className="pl-10"
               />
             </div>
+            {produtos.length === 0 && (
+              <p className="text-xs text-red-500 mt-1">⚠️ Adicionar pelo menos um produto é obrigatório</p>
+            )}
           </div>
 
           {/* Carrinho lateral com quantidades editáveis */}
@@ -428,14 +444,14 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
         <TabsContent value="entrega" className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Data da Entrega</Label>
+              <Label className="text-red-500">Data da Entrega *</Label>
               <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
                       "w-full justify-start text-left font-normal",
-                      !entrega.data && "text-muted-foreground"
+                      !entrega.data && "text-muted-foreground border-red-300"
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -456,6 +472,9 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
                   />
                 </PopoverContent>
               </Popover>
+              {!entrega.data && (
+                <p className="text-xs text-red-500 mt-1">⚠️ Selecionar a data de entrega é obrigatório</p>
+              )}
             </div>
             <div>
               <Label>Período</Label>
@@ -480,7 +499,7 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
           </div>
 
           <div>
-            <Label htmlFor="observacoes">Observações Especiais</Label>
+            <Label htmlFor="observac oes">Observações Especiais</Label>
             <Input
               id="observacoes"
               value={entrega.observacoes}
@@ -493,7 +512,10 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
             <Button variant="outline" onClick={() => setStep('produtos')}>
               Voltar
             </Button>
-            <Button onClick={() => setStep('resumo')}>
+            <Button 
+              onClick={() => setStep('resumo')}
+              disabled={!entrega.data}
+            >
               Próximo: Resumo
             </Button>
           </div>
@@ -550,7 +572,7 @@ export function NovoPedidoForm({ onSuccess }: NovoPedidoFormProps) {
             <Button 
               onClick={handleSubmit} 
               className="bg-rose-500 hover:bg-rose-600"
-              disabled={loading}
+              disabled={loading || !cliente || produtos.length === 0 || !entrega.data}
             >
               {loading ? 'Criando Pedido...' : 'Confirmar Pedido'}
             </Button>
