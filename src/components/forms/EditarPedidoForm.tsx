@@ -1,9 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { NovoProdutoForm } from '@/components/forms/NovoProdutoForm';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Minus } from 'lucide-react';
@@ -41,6 +42,7 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
   const [loading, setLoading] = useState(false);
   const [produtosDisponiveis, setProdutosDisponiveis] = useState<any[]>([]);
   const [produtosSelecionados, setProdutosSelecionados] = useState<{ produto_id: string, quantidade: number }[]>([]);
+  const [isNovoProdutoOpen, setIsNovoProdutoOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -73,22 +75,34 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
     // eslint-disable-next-line
   }, [pedido.id]);
 
+  // Função para recarregar produtos após adicionar novo
+  const recarregarProdutos = async () => {
+    try {
+      const produtos = await fetchProdutos();
+      setProdutosDisponiveis(produtos);
+    } catch (error) {
+      console.error('Erro ao recarregar produtos:', error);
+    }
+  };
+
   // Calcular valor total dos produtos selecionados
   const valorTotal = produtosSelecionados.reduce((total, item) => {
     const produto = produtosDisponiveis.find(p => p.id === item.produto_id);
     return total + ((produto?.preco || 0) * item.quantidade);
   }, 0);
 
-  const handleProdutoQtdChange = (produto_id: string, qtd: number) => {
-    if (qtd <= 0) {
+  const handleProdutoQtdChange = (produto_id: string, qtd: number | string) => {
+    const quantidade = typeof qtd === 'string' ? parseFloat(qtd) || 0 : qtd;
+    
+    if (quantidade <= 0) {
       setProdutosSelecionados((prev) => prev.filter((p) => p.produto_id !== produto_id));
     } else {
       setProdutosSelecionados((prev) => {
         const exists = prev.find((p) => p.produto_id === produto_id);
         if (exists) {
-          return prev.map((p) => (p.produto_id === produto_id ? { ...p, quantidade: qtd } : p));
+          return prev.map((p) => (p.produto_id === produto_id ? { ...p, quantidade } : p));
         }
-        return [...prev, { produto_id, quantidade: qtd }];
+        return [...prev, { produto_id, quantidade }];
       });
     }
   };
@@ -205,155 +219,184 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label htmlFor="cliente">Cliente</Label>
-        <Input
-          value={pedido.cliente || 'Cliente não encontrado'}
-          disabled
-          className="bg-gray-100"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="valor_total">Valor Total</Label>
-        <Input
-          value={`R$ ${valorTotal.toFixed(2)}`}
-          disabled
-          className="bg-gray-100"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="data_entrega">Data de Entrega *</Label>
-        <Input
-          id="data_entrega"
-          type="date"
-          value={formData.data_entrega}
-          onChange={(e) => setFormData({ ...formData, data_entrega: e.target.value })}
-          min={hoje}
-          required
-          disabled={pedido.status === 'finalizado'}
-        />
-        <p className="text-sm text-gray-500 mt-1">
-          * A data de entrega deve ser hoje ({new Date().toLocaleDateString('pt-BR')}) ou uma data futura
-        </p>
-        {formData.data_entrega && formData.data_entrega < hoje && (
-          <p className="text-sm text-red-500 mt-1">
-            ⚠️ Data selecionada está no passado. Selecione uma data válida.
-          </p>
-        )}
-      </div>
-
-      <div>
-        <Label>Produtos do Pedido *</Label>
-        <div className="space-y-2">
-          {produtosSelecionados.map((item) => {
-            const produto = produtosDisponiveis.find(p => p.id === item.produto_id);
-            return (
-              <div key={item.produto_id} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <span className="font-medium">{produto?.nome} ({produto?.unidade})</span>
-                  <div className="text-sm text-gray-600">R$ {produto?.preco?.toFixed(2) || '0,00'} cada</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleProdutoQtdChange(item.produto_id, item.quantidade - 1)}
-                    disabled={pedido.status === 'finalizado'}
-                  >
-                    <Minus className="h-3 w-3" />
-                  </Button>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={item.quantidade}
-                    className="w-20 text-center"
-                    onChange={e => handleProdutoQtdChange(item.produto_id, Math.max(1, Number(e.target.value)))}
-                    disabled={pedido.status === 'finalizado'}
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleProdutoQtdChange(item.produto_id, item.quantidade + 1)}
-                    disabled={pedido.status === 'finalizado'}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleRemoveProduto(item.produto_id)}
-                    disabled={pedido.status === 'finalizado'}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    Remover
-                  </Button>
-                </div>
-                <div className="text-sm font-medium min-w-[80px] text-right">
-                  R$ {((produto?.preco || 0) * item.quantidade).toFixed(2)}
-                </div>
-              </div>
-            );
-          })}
+    <>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <Label htmlFor="cliente">Cliente</Label>
+          <Input
+            value={pedido.cliente || 'Cliente não encontrado'}
+            disabled
+            className="bg-gray-100"
+          />
         </div>
-        
-        {/* Selector para adicionar mais produtos ao pedido */}
-        <div className="mt-3">
-          <Label>Adicionar Produto</Label>
-          <div className="flex gap-2">
-            <select
-              className="flex-1 rounded border px-3 py-2"
+
+        <div>
+          <Label htmlFor="valor_total">Valor Total</Label>
+          <Input
+            value={`R$ ${valorTotal.toFixed(2)}`}
+            disabled
+            className="bg-gray-100"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="data_entrega">Data de Entrega *</Label>
+          <Input
+            id="data_entrega"
+            type="date"
+            value={formData.data_entrega}
+            onChange={(e) => setFormData({ ...formData, data_entrega: e.target.value })}
+            min={hoje}
+            required
+            disabled={pedido.status === 'finalizado'}
+          />
+          <p className="text-sm text-gray-500 mt-1">
+            * A data de entrega deve ser hoje ({new Date().toLocaleDateString('pt-BR')}) ou uma data futura
+          </p>
+          {formData.data_entrega && formData.data_entrega < hoje && (
+            <p className="text-sm text-red-500 mt-1">
+              ⚠️ Data selecionada está no passado. Selecione uma data válida.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <Label>Produtos do Pedido *</Label>
+          <div className="space-y-2">
+            {produtosSelecionados.map((item) => {
+              const produto = produtosDisponiveis.find(p => p.id === item.produto_id);
+              return (
+                <div key={item.produto_id} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <span className="font-medium">{produto?.nome} ({produto?.unidade})</span>
+                    <div className="text-sm text-gray-600">R$ {produto?.preco?.toFixed(2) || '0,00'} cada</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleProdutoQtdChange(item.produto_id, Math.max(0, item.quantidade - 0.5))}
+                      disabled={pedido.status === 'finalizado'}
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      value={item.quantidade}
+                      className="w-20 text-center"
+                      onChange={e => handleProdutoQtdChange(item.produto_id, e.target.value)}
+                      disabled={pedido.status === 'finalizado'}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleProdutoQtdChange(item.produto_id, item.quantidade + 0.5)}
+                      disabled={pedido.status === 'finalizado'}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleRemoveProduto(item.produto_id)}
+                      disabled={pedido.status === 'finalizado'}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      Remover
+                    </Button>
+                  </div>
+                  <div className="text-sm font-medium min-w-[80px] text-right">
+                    R$ {((produto?.preco || 0) * item.quantidade).toFixed(2)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          {/* Selector para adicionar mais produtos ao pedido */}
+          <div className="mt-3 space-y-2">
+            <Label>Adicionar Produto</Label>
+            <div className="flex gap-2">
+              <select
+                className="flex-1 rounded border px-3 py-2 h-10"
+                disabled={pedido.status === 'finalizado'}
+                onChange={e => {
+                  const produto_id = e.target.value;
+                  if (produto_id) {
+                    handleAddProduto(produto_id);
+                    e.target.value = '';
+                  }
+                }}
+                defaultValue=""
+              >
+                <option value="">Selecionar produto para adicionar...</option>
+                {produtosDisponiveis
+                  .filter(p => !produtosSelecionados.find(sel => sel.produto_id === p.id))
+                  .map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome} ({p.unidade}) - R$ {p.preco?.toFixed(2) || '0,00'}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            
+            {/* Botão para adicionar novo produto */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsNovoProdutoOpen(true)}
               disabled={pedido.status === 'finalizado'}
-              onChange={e => {
-                const produto_id = e.target.value;
-                if (produto_id) {
-                  handleAddProduto(produto_id);
-                  e.target.value = '';
-                }
-              }}
-              defaultValue=""
+              className="w-full"
             >
-              <option value="">Selecionar produto para adicionar...</option>
-              {produtosDisponiveis
-                .filter(p => !produtosSelecionados.find(sel => sel.produto_id === p.id))
-                .map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.nome} ({p.unidade}) - R$ {p.preco?.toFixed(2) || '0,00'}
-                  </option>
-                ))}
-            </select>
+              <Plus className="h-4 w-4 mr-2" />
+              Produto não encontrado? Cadastrar novo
+            </Button>
           </div>
         </div>
-      </div>
 
-      <div>
-        <Label htmlFor="observacoes">Observações</Label>
-        <Textarea
-          id="observacoes"
-          value={formData.observacoes}
-          onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-          placeholder="Observações sobre o pedido..."
-          rows={3}
-          disabled={pedido.status === 'finalizado'}
-        />
-      </div>
+        <div>
+          <Label htmlFor="observacoes">Observações</Label>
+          <Textarea
+            id="observacoes"
+            value={formData.observacoes}
+            onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+            placeholder="Observações sobre o pedido..."
+            rows={3}
+            disabled={pedido.status === 'finalizado'}
+          />
+        </div>
 
-      <div className="flex justify-end gap-3 pt-4">
-        <Button type="button" variant="outline" onClick={onSuccess} disabled={loading}>
-          Cancelar
-        </Button>
-        <Button 
-          type="submit" 
-          disabled={loading || pedido.status === 'finalizado' || (formData.data_entrega && formData.data_entrega < hoje)}
-        >
-          {loading ? 'Salvando...' : 'Salvar Alterações'}
-        </Button>
-      </div>
-    </form>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="outline" onClick={onSuccess} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button 
+            type="submit" 
+            disabled={loading || pedido.status === 'finalizado' || (formData.data_entrega && formData.data_entrega < hoje)}
+          >
+            {loading ? 'Salvando...' : 'Salvar Alterações'}
+          </Button>
+        </div>
+      </form>
+
+      {/* Modal para cadastrar novo produto */}
+      <Dialog open={isNovoProdutoOpen} onOpenChange={setIsNovoProdutoOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Cadastrar Novo Produto</DialogTitle>
+          </DialogHeader>
+          <NovoProdutoForm onSuccess={() => {
+            setIsNovoProdutoOpen(false);
+            recarregarProdutos();
+          }} />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
