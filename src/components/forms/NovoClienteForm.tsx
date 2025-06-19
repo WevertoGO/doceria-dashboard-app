@@ -57,6 +57,21 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
     return regexTelefone.test(telefone);
   };
 
+  const verificarClienteExistente = async (nomeCliente: string) => {
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('id')
+      .ilike('nome', nomeCliente.trim())
+      .limit(1);
+
+    if (error) {
+      console.error('Erro ao verificar cliente existente:', error);
+      return false;
+    }
+
+    return data && data.length > 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -102,6 +117,20 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
 
     try {
       setLoading(true);
+      console.log('Verificando se cliente já existe:', nome.trim());
+      
+      // Verificar se já existe um cliente com o mesmo nome
+      const clienteExiste = await verificarClienteExistente(nome.trim());
+      
+      if (clienteExiste) {
+        toast({
+          title: 'Cliente já cadastrado',
+          description: 'Já existe um cliente cadastrado com este nome. Verifique se não é um cliente duplicado.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       console.log('Criando cliente:', { nome, telefones, email, endereco, observacoes });
       
       // Cria cliente com o primeiro telefone na tabela principal (para compatibilidade)

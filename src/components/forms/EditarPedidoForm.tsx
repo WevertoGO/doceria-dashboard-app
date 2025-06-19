@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -323,7 +324,7 @@ export function EditarPedidoForm({ pedido, onSuccess }: EditarPedidoFormProps) {
             <Label>Adicionar Produto</Label>
             <div className="flex gap-2">
               <select
-                className="flex-1 rounded border px-3 py-2 h-10"
+                className="flex-1 rounded border border-gray-300 px-3 py-2 h-10 bg-white text-gray-900 focus:border-blue-500 focus:outline-none"
                 disabled={pedido.status === 'finalizado'}
                 onChange={e => {
                   const produto_id = e.target.value;
