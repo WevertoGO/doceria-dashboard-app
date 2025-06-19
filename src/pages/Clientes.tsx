@@ -35,9 +35,19 @@ const Clientes = () => {
 
       if (error) throw error;
 
-      // Calcular número de pedidos para cada cliente
-      const clientesComPedidos = await Promise.all(
+      // Carregar telefones e calcular número de pedidos para cada cliente
+      const clientesComDados = await Promise.all(
         (data || []).map(async (cliente) => {
+          // Buscar telefones na tabela cliente_telefones
+          const { data: telefonesData } = await supabase
+            .from('cliente_telefones')
+            .select('telefone')
+            .eq('cliente_id', cliente.id)
+            .order('created_at', { ascending: true });
+
+          const telefones = telefonesData?.map(t => t.telefone) || [];
+          
+          // Buscar número de pedidos
           const { count } = await supabase
             .from('pedidos')
             .select('*', { count: 'exact', head: true })
@@ -53,13 +63,15 @@ const Clientes = () => {
 
           return {
             ...cliente,
+            telefones,
+            primeiroTelefone: telefones[0] || cliente.telefone || '-',
             numeroPedidos: count || 0,
             ultimoPedido: ultimoPedido?.data_pedido || null,
           };
         })
       );
 
-      setClientes(clientesComPedidos);
+      setClientes(clientesComDados);
     } catch (error) {
       console.error('Erro ao carregar clientes:', error);
       toast({
@@ -79,6 +91,13 @@ const Clientes = () => {
 
   const handleDeleteClient = async (clienteId: string) => {
     try {
+      // Primeiro deletar os telefones
+      await supabase
+        .from('cliente_telefones')
+        .delete()
+        .eq('cliente_id', clienteId);
+
+      // Depois deletar o cliente
       const { error } = await supabase
         .from('clientes')
         .delete()
@@ -104,7 +123,8 @@ const Clientes = () => {
 
   const clientesFiltrados = clientes.filter(cliente =>
     cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cliente.telefone?.toLowerCase().includes(searchTerm.toLowerCase())
+    cliente.telefones.some((tel: string) => tel.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    cliente.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -145,7 +165,7 @@ const Clientes = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Buscar por nome ou telefone..."
+                  placeholder="Buscar por nome, telefone ou email..."
                   className="pl-10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -161,6 +181,7 @@ const Clientes = () => {
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">Nome</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">Telefone</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Email</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">Nº Pedidos</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">Último Pedido</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">Ações</th>
@@ -174,12 +195,13 @@ const Clientes = () => {
                           <td className="py-3 px-4"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></td>
                           <td className="py-3 px-4"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></td>
                           <td className="py-3 px-4"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></td>
+                          <td className="py-3 px-4"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></td>
                           <td className="py-3 px-4"><div className="h-8 bg-gray-200 rounded animate-pulse"></div></td>
                         </tr>
                       ))
                     ) : clientes.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-8 text-center text-gray-500">
+                        <td colSpan={6} className="py-8 text-center text-gray-500">
                           Nenhum cliente encontrado
                         </td>
                       </tr>
@@ -187,7 +209,19 @@ const Clientes = () => {
                       clientesFiltrados.map((cliente) => (
                         <tr key={cliente.id} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-3 px-4 font-medium text-gray-900">{cliente.nome}</td>
-                          <td className="py-3 px-4 text-gray-600">{cliente.telefone || '-'}</td>
+                          <td className="py-3 px-4 text-gray-600">
+                            {cliente.telefones.length > 0 ? (
+                              <div>
+                                <div>{cliente.telefones[0]}</div>
+                                {cliente.telefones.length > 1 && (
+                                  <div className="text-xs text-gray-400">
+                                    +{cliente.telefones.length - 1} mais
+                                  </div>
+                                )}
+                              </div>
+                            ) : '-'}
+                          </td>
+                          <td className="py-3 px-4 text-gray-600">{cliente.email || '-'}</td>
                           <td className="py-3 px-4 text-gray-600">{cliente.numeroPedidos}</td>
                           <td className="py-3 px-4 text-gray-600">
                             {cliente.ultimoPedido 

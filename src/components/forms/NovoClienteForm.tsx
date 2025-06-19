@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,11 +94,14 @@ export function NovoClienteForm({ onSuccess }: NovoClienteFormProps) {
       setLoading(true);
       console.log('Criando cliente:', { nome, telefones, email, endereco, observacoes });
       
-      // Cria cliente sem telefone na tabela principal
+      // Cria cliente com o primeiro telefone na tabela principal (para compatibilidade)
+      const primeiroTelefone = telefones[0].trim();
+      
       const { data: cliente, error } = await supabase
         .from('clientes')
         .insert({
           nome: nome.trim(),
+          telefone: primeiroTelefone, // Mantém compatibilidade
           email: email.trim() || null,
           endereco: endereco.trim() || null,
           observacoes: observacoes.trim() || null,
